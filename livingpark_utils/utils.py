@@ -9,22 +9,27 @@ import subprocess
 import sys
 from IPython.display import HTML
 
+
 def prologue():
-    '''
+    """
     Function to be used as prolog in a notebook.
-    '''
+    """
 
     # Don't print warnings in notebook
     warnings.filterwarnings("ignore")
 
     # Install notebook dependencies
-    print('Installing notebook dependencies (see log in install.log)... ')
-    f = open('install.log', 'wb')
-    subprocess.check_call([sys.executable, "-m", "pip", "install", '-r', 'requirements.txt'], stdout=f, stderr=f)
+    print("Installing notebook dependencies (see log in install.log)... ")
+    f = open("install.log", "wb")
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+        stdout=f,
+        stderr=f,
+    )
 
     # Notebook execution timestamp
     print(f"This notebook was run on {datetime.datetime.now()}")
-    
+
     # Button to toggle code on/off
     on_off_button = HTML(
         """<script>
@@ -40,22 +45,24 @@ def prologue():
         $( document ).ready(code_toggle);
         </script>
         <form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the Python code."></form>"""
-        )
+    )
     return on_off_button
 
 
-def install_ppmi_study_files(required_files, data_dir='data', force=False):
-    '''
+def install_ppmi_study_files(required_files, data_dir="data", force=False):
+    """
     Download PPMI study files in required_files if they are not already available in data_dir.
 
     Positional parameters:
     * required_files: list of required PPMI study files (cvs files) supported by ppmi_downloader.
-    * data_dir: directory where to download the files. 
+    * data_dir: directory where to download the files.
     * force: if True, download the files even if they are already present in data_dir.
-    '''
+    """
 
     if not force:
-        missing_files = [x for x in required_files if not op.exists(os.path.join(data_dir, x))]
+        missing_files = [
+            x for x in required_files if not op.exists(os.path.join(data_dir, x))
+        ]
     else:
         missing_files = required_files
 
@@ -68,8 +75,15 @@ def install_ppmi_study_files(required_files, data_dir='data', force=False):
 
     print(f"The following files are now available: {required_files}")
 
-def install_datalad_repo(username, repo_name, host='login.bic.mni.mcgill.ca', host_dir='/data/pd/ppmi/livingpark-papers', local_datalad_path='.datalad'):
-    '''
+
+def install_datalad_repo(
+    username,
+    repo_name,
+    host="login.bic.mni.mcgill.ca",
+    host_dir="/data/pd/ppmi/livingpark-papers",
+    local_datalad_path=".datalad",
+):
+    """
     Installs the DataLad dataset located at {username}@{host}:{host_dir}/{repo_name} into {local_datalad_path}. Requires a functional ssh connection to {username}@{host}.
 
     * username: user name on host.
@@ -77,8 +91,8 @@ def install_datalad_repo(username, repo_name, host='login.bic.mni.mcgill.ca', ho
     * host: ssh host where DataLad dataset is stored.
     * host_dir: directory on host where DataLad dataset is stored (absolute path).
     * local_datalad_path: local path where to download the dataset. Use default unless you know what you're doing.
-    '''
-    
+    """
+
     if op.exists(local_datalad_path):
         # TODO: check if path is a valid DataLad dataset without doing d.status because it's too long
         d = dat.Dataset(local_datalad_path)
@@ -87,4 +101,4 @@ def install_datalad_repo(username, repo_name, host='login.bic.mni.mcgill.ca', ho
         dat.install(
             source=f"{username}@{host}:{host_dir}/{repo_name}",
             path=local_datalad_path,
-    )
+        )
