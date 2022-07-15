@@ -19,19 +19,19 @@ class LivingParkUtils:
 
     def __init__(
         self,
-        paper_name,
+        notebook_name,
         config_file=".livingpark_config",
         data_cache_path=".cache",
         use_bic_server=None,
         ssh_username=None,
-        ssh_host="login.bic.mni.mcgill.ca",
+        ssh_host="login.bic.mni.mcgill.ca", # TODO: call this cache server
         ssh_host_dir="/data/pd/ppmi/livingpark-papers",
     ):
         """
         Initializes a LivingPark notebook.
 
         Parameters:
-        * paper_name: name of paper being replicated. Used as DataLad dataset name when DataLad is used. Example: 'scherfler-etal'.
+        * notebook_name: name of the notebook. Used as DataLad dataset name when DataLad is used. Example: 'scherfler-etal'.
         * config_file: LivingPark configuration file path. Default: .livingpark_config in current working directoy. If not passed to the constructor, parameters are set by (1) looking
           into configuration file, (2) looking in environment variables, (3) prompting the user.
         * data_cache_path: local path where to store the dataset cache. Keep default value unless you know what you're doing.
@@ -39,7 +39,7 @@ class LivingParkUtils:
         * ssh_host_dir: directory on host where DataLad dataset is stored (absolute path). Not used when DataLad is not used.
         """
 
-        self.paper_name = paper_name
+        self.notebook_name = notebook_name
         self.config_file = op.abspath(config_file)
         self.ssh_host = ssh_host
         self.ssh_host_dir = ssh_host_dir
@@ -91,6 +91,12 @@ class LivingParkUtils:
             config.set("livingpark", "ssh_username", self.ssh_username)
             with open(self.config_file, "w") as f:
                 config.write(f)
+
+    def setup_notebook_cache(self):
+        '''
+        Depending on configuration, create cache directory, datalad-install it from cache server, or datalad-update it. 
+        Create symlinks for 'inputs' and 'outputs' to cache directory.
+        '''
 
         # Create or update cache
         if self.use_bic_server:
@@ -182,7 +188,7 @@ class LivingParkUtils:
 
     def __install_datalad_cache(self):
         """
-        Installs the DataLad dataset located at {self.ssh_username}@{self.host}:{self.host_dir}/{self.paper_name} into {self.data_cache_path}. Requires a functional ssh connection to {self.ssh_username}@{self.host}.
+        Installs the DataLad dataset located at {self.ssh_username}@{self.host}:{self.host_dir}/{self.notebook_name} into {self.data_cache_path}. Requires a functional ssh connection to {self.ssh_username}@{self.host}.
         """
 
         if op.exists(self.data_cache_path):
@@ -192,11 +198,11 @@ class LivingParkUtils:
         else:
 
             dat.install(
-                source=f"{self.ssh_username}@{self.ssh_host}:{self.ssh_host_dir}/{self.paper_name}",
+                source=f"{self.ssh_username}@{self.ssh_host}:{self.ssh_host_dir}/{self.notebook_name}",
                 path=self.data_cache_path,
             )
 
-    def __clean_protocol_description(self, desc):
+    def clean_protocol_description(self, desc):
         """
         Replace whitespaces and parentheses in protocol descriptions to use
         them in file names (as done by PPMI)
@@ -212,7 +218,7 @@ class LivingParkUtils:
             f"sub-{subject_id}",
             f"ses-{event_id}",
             "anat",
-            f"PPMI_*{self.__clean_protocol_description(protocol_description)}*.nii",
+            f"PPMI_*{self.clean_protocol_description(protocol_description)}*.nii",
         )
         files = glob.glob(expression)
         assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
