@@ -188,7 +188,8 @@ class LivingParkUtils:
 
     def __install_datalad_cache(self):
         """
-        Installs the DataLad dataset located at {self.ssh_username}@{self.host}:{self.host_dir}/{self.notebook_name} into {self.data_cache_path}. Requires a functional ssh connection to {self.ssh_username}@{self.host}.
+        Installs the DataLad dataset located at {self.ssh_username}@{self.host}:{self.host_dir}/{self.notebook_name} into {self.data_cache_path}.
+        Requires a functional ssh connection to {self.ssh_username}@{self.host}.
         """
 
         if op.exists(self.data_cache_path):
@@ -206,12 +207,28 @@ class LivingParkUtils:
         """
         Replace whitespaces and parentheses in protocol descriptions to use
         them in file names (as done by PPMI)
+
+        Parameters:
+        * desc: Protocol description. Example: 'MPRAGE GRAPPA'
         """
         return desc.replace(" ", "_").replace("(", "_").replace(")", "_")
 
     def find_nifti_file_in_cache(
         self, subject_id, event_id, protocol_description, base_dir="inputs"
     ):
+        '''
+      In cache directory, search for nifti file matching subject_id, event_id and protocol_description. If not found, 
+      search for nifti file matching subject_id and event_id only, and return it if a single file is found.
+
+      Parameters:
+      * subject_id: Subject id
+      * event_id: Event id. Example: BL
+      * protocol_description: Protocol description. Example: 'MPRAGE GRAPPA'
+
+      Return value:
+      * File name matching the subject_id, event_id, and if possible protocol_description. None if no matching file is found.
+      '''
+
         expression = op.join(
             self.data_cache_path,
             base_dir,
@@ -224,5 +241,18 @@ class LivingParkUtils:
         assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
         if len(files) == 1:
             return files[0]
-        # print(f'No nifti file found for: {(directory, subject_id, event_id, protocol_description)}')
+        print(f'Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, removing protocol description from glob expression')
+        expression = op.join(
+            self.data_cache_path,
+            base_dir,
+            f"sub-{subject_id}",
+            f"ses-{event_id}",
+            "anat",
+            f"PPMI_*.nii",
+        )
+        files = glob.glob(expression)
+        assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
+        if len(files) == 1:
+            return files[0]
+        print(f'Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, using lenient expression, returning None')
         return None
