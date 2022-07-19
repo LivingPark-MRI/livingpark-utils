@@ -46,6 +46,8 @@ class LivingParkUtils:
         self.data_cache_path = data_cache_path
         self.study_files_dir = op.join("inputs", "study_files")
 
+        os.makedirs(self.study_files_dir, exist_ok=True)
+
         # These variables will be set by the configuration
         self.use_bic_server = use_bic_server
         self.ssh_username = ssh_username
@@ -57,7 +59,7 @@ class LivingParkUtils:
             config = SafeConfigParser()
             config.read(self.config_file)
             self.use_bic_server = bool(config.get("livingpark", "use_bic_server"))
-            if self.use_bic_server:
+            if self.use_bic_server == 'True':
                 self.ssh_username = config.get("livingpark", "ssh_username")
             save_config = False
 
@@ -79,6 +81,8 @@ class LivingParkUtils:
             if any(answer.lower() == f for f in ["yes", "y", "1", "ye"]):
                 self.use_bic_server = True
                 self.ssh_username = input(f"What's your username on {self.ssh_host}? ")
+            else:
+                self.use_bic_server = False
             # TODO: attempt ssh connection / check git-annex config
 
         if save_config:
@@ -88,7 +92,8 @@ class LivingParkUtils:
             config.read(self.config_file)
             config.add_section("livingpark")
             config.set("livingpark", "use_bic_server", str(self.use_bic_server))
-            config.set("livingpark", "ssh_username", self.ssh_username)
+            if self.use_bic_server:
+                config.set("livingpark", "ssh_username", self.ssh_username)
             with open(self.config_file, "w") as f:
                 config.write(f)
 
@@ -211,7 +216,7 @@ class LivingParkUtils:
         Parameters:
         * desc: Protocol description. Example: 'MPRAGE GRAPPA'
         """
-        return desc.replace(" ", "_").replace("(", "_").replace(")", "_")
+        return desc.replace(" ", "_").replace("(", "_").replace(")", "_").replace("/", "_")
 
     def find_nifti_file_in_cache(
         self, subject_id, event_id, protocol_description, base_dir="inputs"
