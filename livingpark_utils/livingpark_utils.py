@@ -2,15 +2,15 @@
 import datetime
 import glob
 import os
-import os.path as op
 import subprocess
 import sys
 import warnings
 from configparser import SafeConfigParser
 from pprint import pprint
 
-import datalad.api as dat
+import datalad
 import ppmi_downloader
+import pytz
 from IPython.display import HTML
 
 
@@ -48,17 +48,19 @@ class LivingParkUtils:
         data_cache_path: str, default ".cache"
             Local path where to store the dataset cache.
             Keep default value unless you know what you're doing.
+        use_bic_server: TODO check type
+            TODO add description.
         ssh_host: str, default "login.bic.mni.mcgill.ca"
             SSH host where DataLad dataset is stored.
         ssh_host_dir: str, default "/data/pd/ppmi/livingpark-papers"
             Absolute path to host directory where DataLad dataset is stored.
         """
         self.notebook_name = notebook_name
-        self.config_file = op.abspath(config_file)
+        self.config_file = os.path.abspath(config_file)
         self.ssh_host = ssh_host
         self.ssh_host_dir = ssh_host_dir
         self.data_cache_path = data_cache_path
-        self.study_files_dir = op.join("inputs", "study_files")
+        self.study_files_dir = os.path.join("inputs", "study_files")
 
         os.makedirs(self.study_files_dir, exist_ok=True)
 
@@ -69,7 +71,7 @@ class LivingParkUtils:
         save_config = True
 
         # look in config file
-        if op.exists(self.config_file):
+        if os.path.exists(self.config_file):
             config = SafeConfigParser()
             config.read(self.config_file)
             self.use_bic_server = bool(config.get("livingpark", "use_bic_server"))
@@ -128,14 +130,14 @@ class LivingParkUtils:
 
         # Make or update links to cache
         for x in ["inputs", "outputs"]:
-            if op.islink(x):
+            if os.path.islink(x):
                 print(f"removing link {x}")
                 os.remove(x)
-            elif op.exists(x):
+            elif os.path.exists(x):
                 raise Exception(f"Directory {x} exists and is not a symlink.")
             else:
                 print(f"{x} doesnt exist")
-            os.symlink(op.join(self.data_cache_path, x), x)
+            os.symlink(os.path.join(self.data_cache_path, x), x)
 
     def notebook_init(self) -> HTML:
         """Initialize a paper replication notebook.
@@ -158,7 +160,8 @@ class LivingParkUtils:
             stderr=f,
         )
 
-        print(f"This notebook was run on {datetime.datetime.now()}")
+        now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
+        print(f"This notebook was run on {now}")
 
         with open("toggle_button.html") as fin:
             return HTML(fin.read())
@@ -227,12 +230,12 @@ class LivingParkUtils:
         Requires a functional ssh connection to `self.ssh_username`@`self.host`.
         Located at `self.host_dir`/`self.notebook_name`/`self.data_cache_path`.
         """
-        if op.exists(self.data_cache_path):
+        if os.path.exists(self.data_cache_path):
             # noqa: TODO check if path is a valid DataLad dataset without doing d.status because it's too long.
-            d = dat.Dataset(self.data_cache_path)
+            d = datalad.api.Dataset(self.data_cache_path)
             d.update(how="merge")
         else:
-            dat.install(
+            datalad.api.install(
                 source=(
                     f"{self.ssh_username}@{self.ssh_host}:"
                     f"{self.ssh_host_dir}/{self.notebook_name}"
@@ -275,7 +278,7 @@ class LivingParkUtils:
         protocol_description: str
             Protocol description. Example: "MPRAGE GRAPPA"
         base_dir: str, default "inputs"
-            # TODO Describe this. Not sure what it is exactly.
+            TODO Describe this. Not sure what it is exactly.
 
         Returns
         -------
@@ -283,7 +286,7 @@ class LivingParkUtils:
             File name matching the `subject_id`, `event_id`, and if possible
             `protocol_description`. None if no matching file is found.
         """
-        expression = op.join(
+        expression = os.path.join(
             self.data_cache_path,
             base_dir,
             f"sub-{subject_id}",
@@ -300,7 +303,7 @@ class LivingParkUtils:
             f"{(subject_id, event_id, protocol_description)}."
             "\nRemoving protocol description from glob expression"
         )
-        expression = op.join(
+        expression = os.path.join(
             self.data_cache_path,
             base_dir,
             f"sub-{subject_id}",
