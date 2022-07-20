@@ -1,44 +1,56 @@
-import datalad
-import datalad.api as dat
+"""Provide utility function for the LivingPark notebook for paper replication."""
 import datetime
-import warnings
+import glob
 import os
 import os.path as op
-import ppmi_downloader
 import subprocess
 import sys
+import warnings
 from configparser import SafeConfigParser
-import glob
+from pprint import pprint
+
+import datalad.api as dat
+import ppmi_downloader
 from IPython.display import HTML
 
 
 class LivingParkUtils:
-    """
-    Contains functions to be reused across LivingPark notebooks
-    """
+    """Contain functions to be reused across LivingPark notebooks."""
 
     def __init__(
         self,
-        notebook_name,
-        config_file=".livingpark_config",
-        data_cache_path=".cache",
-        use_bic_server=None,
-        ssh_username=None,
-        ssh_host="login.bic.mni.mcgill.ca",  # TODO: call this cache server
-        ssh_host_dir="/data/pd/ppmi/livingpark-papers",
-    ):
-        """
-        Initializes a LivingPark notebook.
+        notebook_name: str,
+        config_file: str = ".livingpark_config",
+        data_cache_path: str = ".cache",
+        use_bic_server=None,  # TODO verify the type for this
+        ssh_username=None,  # TODO verify the type for this
+        ssh_host: str = "login.bic.mni.mcgill.ca",  # TODO: call this cache server
+        ssh_host_dir: str = "/data/pd/ppmi/livingpark-papers",
+    ) -> None:
+        """Initialize a LivingPark notebook.
 
-        Parameters:
-        * notebook_name: name of the notebook. Used as DataLad dataset name when DataLad is used. Example: 'scherfler-etal'.
-        * config_file: LivingPark configuration file path. Default: .livingpark_config in current working directoy. If not passed to the constructor, parameters are set by (1) looking
-          into configuration file, (2) looking in environment variables, (3) prompting the user.
-        * data_cache_path: local path where to store the dataset cache. Keep default value unless you know what you're doing.
-        * ssh_host: ssh host where DataLad dataset is stored. Not used when DataLad is not used.
-        * ssh_host_dir: directory on host where DataLad dataset is stored (absolute path). Not used when DataLad is not used.
-        """
+        When undefined, the parameters of the LivingPark configuration are set by
+            #. Looking for configuration file
+            #. Looking for environment variables
+            #. Prompting the user
 
+        Notes
+        -----
+        The configuration parameters for SSH are only used when Datalad is.
+
+        Parameters
+        ----------
+        notebook_name: str
+            Name of the notebook. Used as DataLad dataset name when DataLad is used. Example: "scherfler-etal".
+        config_file: str, default ".livingpark_config"
+            File path of LivingPark configuration.
+        data_cache_path: str, default ".cache"
+            Local path where to store the dataset cache. Keep default value unless you know what you're doing.
+        ssh_host: str, default "login.bic.mni.mcgill.ca"
+            SSH host where DataLad dataset is stored.
+        ssh_host_dir: str, default "/data/pd/ppmi/livingpark-papers"
+            Absolute path to host directory where DataLad dataset is stored.
+        """
         self.notebook_name = notebook_name
         self.config_file = op.abspath(config_file)
         self.ssh_host = ssh_host
@@ -72,7 +84,7 @@ class LivingParkUtils:
             if self.use_bic_server:
                 self.ssh_username = os.environ.get("LIVINGPARK_SSH_USERNAME")
                 assert (
-                    not self.ssh_username is None
+                    self.ssh_username is not None
                 ), "Environment variable LIVINGPARK_SSH_USERNAME must be defined since LIVINGPARK_USE_BIC_SERVER is set."
 
         if self.use_bic_server is None:
@@ -97,12 +109,11 @@ class LivingParkUtils:
             with open(self.config_file, "w") as f:
                 config.write(f)
 
-    def setup_notebook_cache(self):
-        """
-        Depending on configuration, create cache directory, datalad-install it from cache server, or datalad-update it.
-        Create symlinks for 'inputs' and 'outputs' to cache directory.
-        """
+    def setup_notebook_cache(self) -> None:
+        """Create cache directory, datalad-install it from cache server, or datalad-update it.
 
+        Create symlinks for "inputs" and "outputs" to cache directory.
+        """
         # Create or update cache
         if self.use_bic_server:
             self.__install_datalad_cache()
@@ -122,16 +133,19 @@ class LivingParkUtils:
                 print(f"{x} doesnt exist")
             os.symlink(op.join(self.data_cache_path, x), x)
 
-    def prologue(self):
+    def notebook_init(self) -> HTML:
+        """Initialize a paper replication notebook.
 
-        """
-        Function to be used as prolog in a notebook.
-        """
+        It ignores cell warnings, install dependencies, show execution time, and create a
+        toggle button for displaying code cells.
 
-        # Don't print warnings in notebook
+        Returns
+        -------
+        toggle_button : HTML
+            An HTML button to hide/show code cells in the notebooks.
+        """
         warnings.filterwarnings("ignore")
 
-        # Install notebook dependencies
         print("Installing notebook dependencies (see log in install.log)... ")
         f = open("install.log", "wb")
         subprocess.check_call(
@@ -140,63 +154,90 @@ class LivingParkUtils:
             stderr=f,
         )
 
-        # Notebook execution timestamp
         print(f"This notebook was run on {datetime.datetime.now()}")
 
         # Button to toggle code on/off
-        on_off_button = HTML(
+        toggle_button = HTML(
             """<script>
-            code_show=true; 
+            code_show=true;
             function code_toggle() {
                  if (code_show){
-                 $('div.input').hide();
+                 $("div.input").hide();
                  } else {
-                 $('div.input').show();
+                 $("div.input").show();
                  }
                  code_show = !code_show
-            } 
+            }
             $( document ).ready(code_toggle);
             </script>
             <form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the Python code."></form>"""
         )
-        return on_off_button
+        return toggle_button
 
-    def install_ppmi_study_files(self, required_files, force=False):
+    def download_ppmi_metadata(
+        self,
+        required_files: list,
+        *,
+        out_dir: str = "data",
+        force: bool = False,
+        headless: bool = True,
+        timeout: int = 600,
+    ) -> None:
+        """Download PPMI required study files, if not available.
+
+        Parameters
+        ----------
+        required_files : list
+            Required PPMI study files (cvs files) supported by ppmi_downloader.
+        data_dir : str, default "data"
+            Output directory for download.
+        force : bool, optional
+        headless : bool, default True
+            If True, prevent broswer window to open during download.
+        timeout : int, default 600
+            Number of second before the download times out.
+
+        Raises
+        ------
+        Exception:
+            If failure occurs during download.
         """
-        Download PPMI study files in required_files if they are not already available in data_dir.
-
-        Positional parameters:
-        * required_files: list of required PPMI study files (cvs files) supported by ppmi_downloader.
-        * force: if True, download the files even if they are already present in self.study_files_dir.
-        """
-
-        if not force:
+        if force:
+            missing_files = required_files
+        else:
             missing_files = [
                 x
                 for x in required_files
-                if not op.exists(os.path.join(self.study_files_dir, x))
+                if not os.path.exists(os.path.join(out_dir, x))
             ]
-        else:
-            missing_files = required_files
 
         if len(missing_files) > 0:
-            print(f"Downloading file: {missing_files}")
-            ppmi = ppmi_downloader.PPMIDownloader()
-            ppmi.download_metadata(
-                missing_files,
-                destination_dir=self.study_files_dir,
-                headless=False,
-                timeout=600,
-            )
+            pprint(f"Downloading files: {missing_files}")
+            try:
+                ppmi = ppmi_downloader.PPMIDownloader()
+                ppmi.download_metadata(
+                    missing_files,
+                    destination_dir=out_dir,
+                    headless=headless,
+                    timeout=timeout,
+                )
+            except Exception as e:
+                print("Download failed !")
+                raise (e)
 
-        print(f"The following files are now available: {required_files}")
+            print("Download completed !")
 
-    def __install_datalad_cache(self):
+        else:
+            print("Download skipped: No missing files !")
+
+    def __install_datalad_cache(self) -> None:
+        """Install the DataLad dataset.
+
+        Notes
+        -----
+        Datalad dataset located at `self.ssh_username`@{self.host`:`self.host_dir`/`self.notebook_name` into `self.data_cache_path`.
+        Requires a functional ssh connection to `self.ssh_username`@`self.host`.
         """
-        Installs the DataLad dataset located at {self.ssh_username}@{self.host}:{self.host_dir}/{self.notebook_name} into {self.data_cache_path}.
-        Requires a functional ssh connection to {self.ssh_username}@{self.host}.
-        """
-
         if op.exists(self.data_cache_path):
             # TODO: check if path is a valid DataLad dataset without doing d.status because it's too long
             d = dat.Dataset(self.data_cache_path)
@@ -208,34 +249,46 @@ class LivingParkUtils:
                 path=self.data_cache_path,
             )
 
-    def clean_protocol_description(self, desc):
-        """
-        Replace whitespaces and parentheses in protocol descriptions to use
-        them in file names (as done by PPMI)
+    def clean_protocol_description(self, desc: str) -> str:
+        """Create valid protocol description to use them in file names (as done by PPMI).
 
-        Parameters:
-        * desc: Protocol description. Example: 'MPRAGE GRAPPA'
+        Parameters
+        ----------
+        str
+            Protocol description. Example: "MPRAGE GRAPPA"
         """
         return (
             desc.replace(" ", "_").replace("(", "_").replace(")", "_").replace("/", "_")
         )
 
     def find_nifti_file_in_cache(
-        self, subject_id, event_id, protocol_description, base_dir="inputs"
-    ):
+        self,
+        subject_id: str,
+        event_id: str,
+        protocol_description: str,
+        base_dir: str = "inputs",
+    ) -> str | None:
+        """Return cached nifti files, if any.
+
+        Search for nifti file matching `subject_id`, `event_id` and `protocol_description` in the cache directory.
+        If not found, search for nifti file matching `subject_id` and `event_id` only, and return it if a single file is found.
+
+        Parameters
+        ----------
+        subject_id: str
+            Subject ID
+        event_id: str
+            Event ID. Example: BL
+        protocol_description: str
+            Protocol description. Example: "MPRAGE GRAPPA"
+        base_dir: str, default "inputs"
+            # TODO Describe this. Not sure what it is exactly.
+
+        Returns
+        -------
+        str or None
+            File name matching the `subject_id`, `event_id`, and if possible `protocol_description`. None if no matching file is found.
         """
-        In cache directory, search for nifti file matching subject_id, event_id and protocol_description. If not found,
-        search for nifti file matching subject_id and event_id only, and return it if a single file is found.
-
-        Parameters:
-        * subject_id: Subject id
-        * event_id: Event id. Example: BL
-        * protocol_description: Protocol description. Example: 'MPRAGE GRAPPA'
-
-        Return value:
-        * File name matching the subject_id, event_id, and if possible protocol_description. None if no matching file is found.
-        """
-
         expression = op.join(
             self.data_cache_path,
             base_dir,
