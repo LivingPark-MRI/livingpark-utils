@@ -24,7 +24,7 @@ class LivingParkUtils:
         data_cache_path=".cache",
         use_bic_server=None,
         ssh_username=None,
-        ssh_host="login.bic.mni.mcgill.ca", # TODO: call this cache server
+        ssh_host="login.bic.mni.mcgill.ca",  # TODO: call this cache server
         ssh_host_dir="/data/pd/ppmi/livingpark-papers",
     ):
         """
@@ -59,7 +59,7 @@ class LivingParkUtils:
             config = SafeConfigParser()
             config.read(self.config_file)
             self.use_bic_server = bool(config.get("livingpark", "use_bic_server"))
-            if self.use_bic_server == 'True':
+            if self.use_bic_server == "True":
                 self.ssh_username = config.get("livingpark", "ssh_username")
             save_config = False
 
@@ -98,10 +98,10 @@ class LivingParkUtils:
                 config.write(f)
 
     def setup_notebook_cache(self):
-        '''
-        Depending on configuration, create cache directory, datalad-install it from cache server, or datalad-update it. 
+        """
+        Depending on configuration, create cache directory, datalad-install it from cache server, or datalad-update it.
         Create symlinks for 'inputs' and 'outputs' to cache directory.
-        '''
+        """
 
         # Create or update cache
         if self.use_bic_server:
@@ -216,23 +216,25 @@ class LivingParkUtils:
         Parameters:
         * desc: Protocol description. Example: 'MPRAGE GRAPPA'
         """
-        return desc.replace(" ", "_").replace("(", "_").replace(")", "_").replace("/", "_")
+        return (
+            desc.replace(" ", "_").replace("(", "_").replace(")", "_").replace("/", "_")
+        )
 
     def find_nifti_file_in_cache(
         self, subject_id, event_id, protocol_description, base_dir="inputs"
     ):
-        '''
-      In cache directory, search for nifti file matching subject_id, event_id and protocol_description. If not found, 
-      search for nifti file matching subject_id and event_id only, and return it if a single file is found.
+        """
+        In cache directory, search for nifti file matching subject_id, event_id and protocol_description. If not found,
+        search for nifti file matching subject_id and event_id only, and return it if a single file is found.
 
-      Parameters:
-      * subject_id: Subject id
-      * event_id: Event id. Example: BL
-      * protocol_description: Protocol description. Example: 'MPRAGE GRAPPA'
+        Parameters:
+        * subject_id: Subject id
+        * event_id: Event id. Example: BL
+        * protocol_description: Protocol description. Example: 'MPRAGE GRAPPA'
 
-      Return value:
-      * File name matching the subject_id, event_id, and if possible protocol_description. None if no matching file is found.
-      '''
+        Return value:
+        * File name matching the subject_id, event_id, and if possible protocol_description. None if no matching file is found.
+        """
 
         expression = op.join(
             self.data_cache_path,
@@ -246,7 +248,9 @@ class LivingParkUtils:
         assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
         if len(files) == 1:
             return files[0]
-        print(f'Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, removing protocol description from glob expression')
+        print(
+            f"Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, removing protocol description from glob expression"
+        )
         expression = op.join(
             self.data_cache_path,
             base_dir,
@@ -259,5 +263,7 @@ class LivingParkUtils:
         assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
         if len(files) == 1:
             return files[0]
-        print(f'Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, using lenient expression, returning None')
+        print(
+            f"Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, using lenient expression, returning None"
+        )
         return None
