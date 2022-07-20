@@ -41,11 +41,13 @@ class LivingParkUtils:
         Parameters
         ----------
         notebook_name: str
-            Name of the notebook. Used as DataLad dataset name when DataLad is used. Example: "scherfler-etal".
+            Name of the notebook. Used as DataLad dataset name when DataLad is used.
+            Example: "scherfler-etal".
         config_file: str, default ".livingpark_config"
             File path of LivingPark configuration.
         data_cache_path: str, default ".cache"
-            Local path where to store the dataset cache. Keep default value unless you know what you're doing.
+            Local path where to store the dataset cache.
+            Keep default value unless you know what you're doing.
         ssh_host: str, default "login.bic.mni.mcgill.ca"
             SSH host where DataLad dataset is stored.
         ssh_host_dir: str, default "/data/pd/ppmi/livingpark-papers"
@@ -78,14 +80,16 @@ class LivingParkUtils:
         if self.use_bic_server is None:
             # read environment variable
             var = os.environ.get("LIVINGPARK_USE_BIC_SERVER")
-            if not var is None:
+            if var is not None:
                 self.use_bic_server = bool(var)
                 save_config = False
             if self.use_bic_server:
                 self.ssh_username = os.environ.get("LIVINGPARK_SSH_USERNAME")
-                assert (
-                    self.ssh_username is not None
-                ), "Environment variable LIVINGPARK_SSH_USERNAME must be defined since LIVINGPARK_USE_BIC_SERVER is set."
+                if self.ssh_username is None:
+                    raise Exception(
+                        "Environment variable LIVINGPARK_SSH_USERNAME must be defined"
+                        " since LIVINGPARK_USE_BIC_SERVER is set."
+                    )
 
         if self.use_bic_server is None:
             # prompt user
@@ -110,9 +114,11 @@ class LivingParkUtils:
                 config.write(f)
 
     def setup_notebook_cache(self) -> None:
-        """Create cache directory, datalad-install it from cache server, or datalad-update it.
+        """Create, install, and update the cache directory, if needed.
 
-        Create symlinks for "inputs" and "outputs" to cache directory.
+        Notes
+        -----
+        Aggregate the inputs and outputs into a single dataset by creating symlinks.
         """
         # Create or update cache
         if self.use_bic_server:
@@ -126,9 +132,7 @@ class LivingParkUtils:
                 print(f"removing link {x}")
                 os.remove(x)
             elif op.exists(x):
-                raise Exception(
-                    f"Directory {x} exists and is not a symlink. This should not have happened."
-                )
+                raise Exception(f"Directory {x} exists and is not a symlink.")
             else:
                 print(f"{x} doesnt exist")
             os.symlink(op.join(self.data_cache_path, x), x)
@@ -136,12 +140,12 @@ class LivingParkUtils:
     def notebook_init(self) -> HTML:
         """Initialize a paper replication notebook.
 
-        It ignores cell warnings, install dependencies, show execution time, and create a
-        toggle button for displaying code cells.
+        It ignores cell warnings, install dependencies, show execution time, and create
+        a toggle button for displaying/hiding code cells.
 
         Returns
         -------
-        toggle_button : HTML
+        HTML
             An HTML button to hide/show code cells in the notebooks.
         """
         warnings.filterwarnings("ignore")
@@ -156,23 +160,8 @@ class LivingParkUtils:
 
         print(f"This notebook was run on {datetime.datetime.now()}")
 
-        # Button to toggle code on/off
-        toggle_button = HTML(
-            """<script>
-            code_show=true;
-            function code_toggle() {
-                 if (code_show){
-                 $("div.input").hide();
-                 } else {
-                 $("div.input").show();
-                 }
-                 code_show = !code_show
-            }
-            $( document ).ready(code_toggle);
-            </script>
-            <form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the Python code."></form>"""
-        )
-        return toggle_button
+        with open("toggle_button.html") as fin:
+            return HTML(fin.read())
 
     def download_ppmi_metadata(
         self,
@@ -235,22 +224,24 @@ class LivingParkUtils:
 
         Notes
         -----
-        Datalad dataset located at `self.ssh_username`@{self.host`:`self.host_dir`/`self.notebook_name` into `self.data_cache_path`.
         Requires a functional ssh connection to `self.ssh_username`@`self.host`.
+        Located at `self.host_dir`/`self.notebook_name`/`self.data_cache_path`.
         """
         if op.exists(self.data_cache_path):
-            # TODO: check if path is a valid DataLad dataset without doing d.status because it's too long
+            # noqa: TODO check if path is a valid DataLad dataset without doing d.status because it's too long.
             d = dat.Dataset(self.data_cache_path)
             d.update(how="merge")
         else:
-
             dat.install(
-                source=f"{self.ssh_username}@{self.ssh_host}:{self.ssh_host_dir}/{self.notebook_name}",
+                source=(
+                    f"{self.ssh_username}@{self.ssh_host}:"
+                    f"{self.ssh_host_dir}/{self.notebook_name}"
+                ),
                 path=self.data_cache_path,
             )
 
     def clean_protocol_description(self, desc: str) -> str:
-        """Create valid protocol description to use them in file names (as done by PPMI).
+        """Create valid protocol description for file names (as done by PPMI).
 
         Parameters
         ----------
@@ -270,8 +261,10 @@ class LivingParkUtils:
     ) -> str | None:
         """Return cached nifti files, if any.
 
-        Search for nifti file matching `subject_id`, `event_id` and `protocol_description` in the cache directory.
-        If not found, search for nifti file matching `subject_id` and `event_id` only, and return it if a single file is found.
+        Search for nifti file matching `subject_id`, `event_id` and
+        `protocol_description` in the cache directory.
+        If not found, search for nifti file matching `subject_id` and `event_id` only,
+        and return it if a single file is found.
 
         Parameters
         ----------
@@ -287,7 +280,8 @@ class LivingParkUtils:
         Returns
         -------
         str or None
-            File name matching the `subject_id`, `event_id`, and if possible `protocol_description`. None if no matching file is found.
+            File name matching the `subject_id`, `event_id`, and if possible
+            `protocol_description`. None if no matching file is found.
         """
         expression = op.join(
             self.data_cache_path,
@@ -302,7 +296,9 @@ class LivingParkUtils:
         if len(files) == 1:
             return files[0]
         print(
-            f"Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, removing protocol description from glob expression"
+            "Warning: no nifti file found for: "
+            f"{(subject_id, event_id, protocol_description)}."
+            "\nRemoving protocol description from glob expression"
         )
         expression = op.join(
             self.data_cache_path,
@@ -310,13 +306,15 @@ class LivingParkUtils:
             f"sub-{subject_id}",
             f"ses-{event_id}",
             "anat",
-            f"PPMI_*.nii",
+            "PPMI_*.nii",
         )
         files = glob.glob(expression)
         assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
         if len(files) == 1:
             return files[0]
         print(
-            f"Warning: no nifti file found for: {(subject_id, event_id, protocol_description)}, using lenient expression, returning None"
+            f"Warning: no nifti file found for: "
+            f"{(subject_id, event_id, protocol_description)}."
+            "\nUsing lenient expression, returning None"
         )
         return None
