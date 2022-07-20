@@ -10,7 +10,7 @@ from pprint import pprint
 
 import datalad
 import ppmi_downloader
-import pytz
+import pytz  # type: ignore
 from IPython.display import HTML
 
 
