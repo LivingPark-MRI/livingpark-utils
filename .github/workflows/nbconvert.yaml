@@ -23,7 +23,7 @@ jobs:
       - name: "Notebooks added or updated."
         if: steps.auto-commit-action.outputs.changes_detected == 'true'
         run: echo "Committed changes from auto-generation."
-          
+
       - name: "Notebooks were not modified."
         if: steps.auto-commit-action.outputs.changes_detected == 'false'
         run: echo "Commit skipped. Notebooks were not modified."
