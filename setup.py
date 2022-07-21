@@ -1,16 +1,21 @@
+# noqa: D100
 from setuptools import setup
 
 
-DEPS = [ ]
+install_requires = [
+    "datalad",
+    "IPython",
+    "ppmi_downloader",
+]
 
 setup(
-    name='livingpark_utils',
-    version='0.2',
-    description='Utility functions to write LivingPark notebooks.',
-    author='Tristan Glatard',
-    author_email='tristan.glatard@concordia.ca',
-    license='MIT',
-    packages=['livingpark_utils'],
-    setup_requires=DEPS,
-    install_requires=DEPS,
+    name="livingpark_utils",
+    version="0.2",
+    description="Utility functions to write LivingPark notebooks.",
+    author="Tristan Glatard",
+    author_email="tristan.glatard@concordia.ca",
+    license="MIT",
+    packages=["livingpark_utils"],
+    python_requires=">=3.10",
+    install_requires=install_requires,
 )
