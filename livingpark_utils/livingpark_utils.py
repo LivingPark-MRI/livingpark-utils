@@ -15,8 +15,8 @@ import numpy as np
 import pandas as pd
 import ppmi_downloader
 import pytz  # type: ignore
-from dateutil.parser import parse
-from dateutil.relativedelta import relativedelta
+from dateutil.parser import parse  # type: ignore
+from dateutil.relativedelta import relativedelta  # type: ignore
 from IPython.display import HTML
 
 
@@ -303,8 +303,8 @@ class LivingParkUtils:
             return files[0]
         print(
             "Warning: no nifti file found for: "
-            f"{(subject_id, event_id, protocol_description)} with strict glob expression. "
-            "Trying with lenient glob expression."
+            f"{(subject_id, event_id, protocol_description)} with strict glob "
+            "expression. Trying with lenient glob expression."
         )
         expression = os.path.join(
             self.data_cache_path,
@@ -331,8 +331,8 @@ class LivingParkUtils:
         Returns
         -------
         pd.DataFrame
-            DataFrame containing disease durations for each (patient,event) pair found in
-            "MDS_UPDRS_Part_III.csv".
+            DataFrame containing disease durations for each (patient,event) pair found
+            in "MDS_UPDRS_Part_III.csv".
         """
         # Download required files
         self.download_ppmi_metadata(
@@ -415,7 +415,8 @@ class LivingParkUtils:
                 return np.nan
             else:
                 return mapping[moca_score]
-        except:
+        except Exception as e:
+            print(e)
             return moca_score
 
     def download_missing_nifti_files(
@@ -430,12 +431,18 @@ class LivingParkUtils:
         Parameters
         ----------
         cohort: pd.DataFrame
-            A Pandas DataFrame containing columns PATNO (PPMI patient id), EVENT_ID (MRI visit, for instance 'V06'), and Description (for instance 'MPRAGE GRAPPA').
-            Can be built from the file produced by 'MRI metadata.ipynb'. A column 'File name' will be added to the DataFrame if not already present. This column
-            will contain the paths of the T1-weighted nifti files associated with the patient, MRI visit, and protocol description.
+            A Pandas DataFrame containing columns PATNO (PPMI patient id), EVENT_ID
+            (MRI visit, for instance 'V06'), and Description (for instance
+            'MPRAGE GRAPPA'). Can be built from the file produced by
+            'MRI metadata.ipynb'. A column 'File name' will be added to the DataFrame
+             if not already present. This column
+            will contain the paths of the T1-weighted nifti files associated with the
+             patient, MRI visit, and protocol description.
 
         link_in_outputs: bool
-            If True, create symbolic links to input nifti files in outputs/pre-processing. Useful for processing tools that write next to input files, such as SPM.
+            If True, create symbolic links to input nifti files in
+            outputs/pre-processing. Useful for processing tools that
+            write next to input files, such as SPM.
 
         Returns
         -------
@@ -478,7 +485,8 @@ class LivingParkUtils:
                 )
                 if filename is None:
                     print(
-                        f"Not found: {row['PATNO'], row['EVENT_ID'], row['Description']}"
+                        "Not found: "
+                        + f"{row['PATNO'], row['EVENT_ID'], row['Description']}"
                     )
                 else:  # copy file to dataset
                     dest_dir = os.path.join(

@@ -26,6 +26,3 @@ See also [LivingPark contributing guidelines](https://github.com/LivingPark-MRI/
 Before committing:
 * Run `psf/black` on the modified file(s)
 * Run `pre-commit run --all`
-
-
-
