@@ -8,7 +8,7 @@ Usage examples:
 import livingpark_utils
 
 utils = livingpark_utils.LivingParkUtils('scherfler-etal')
-utils.prologue()
+utils.notebook_init()
 utils.download_ppmi_metadata(['Demographics.csv'])
 utils.find_nifti_file_in_cache(x['PATNO'], x['EVENT_ID'], x['Description'])
 utils.disease_duration()
