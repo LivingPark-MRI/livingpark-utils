@@ -1,0 +1,29 @@
+name: nbconvert
+
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
+jobs:
+  nbconvert:
+    name: Convert Notebooks to Python script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.0.2
+      - uses: actions/setup-python@v4.1.0
+      - run: python -m pip install jupyter nbconvert
+      - run: jupyter nbconvert --output-dir ./livingpark_utils/scripts --to script "./livingpark_utils/notebooks/*.ipynb"
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Auto-generated script from Jupyter notebook
+          branch: main
+          file_pattern: livingpark_utils/scripts/*.py
+      - name: "Notebooks added or updated."
+        if: steps.auto-commit-action.outputs.changes_detected == 'true'
+        run: echo "Committed changes from auto-generation."
+          
+      - name: "Notebooks were not modified."
+        if: steps.auto-commit-action.outputs.changes_detected == 'false'
+        run: echo "Commit skipped. Notebooks were not modified."
