@@ -12,6 +12,11 @@ import datalad
 import ppmi_downloader
 import pytz  # type: ignore
 from IPython.display import HTML
+import pandas as pd
+from dateutil.parser import parse
+from dateutil.relativedelta import relativedelta
+import pkgutil
+import numpy as np
 
 
 class LivingParkUtils:
@@ -60,7 +65,7 @@ class LivingParkUtils:
         self.ssh_host = ssh_host
         self.ssh_host_dir = ssh_host_dir
         self.data_cache_path = data_cache_path
-        self.study_files_dir = os.path.join("inputs", "study_files")
+        self.study_files_dir = os.path.abspath(os.path.join("inputs", "study_files"))
 
         os.makedirs(self.study_files_dir, exist_ok=True)
 
@@ -163,14 +168,11 @@ class LivingParkUtils:
         now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
         print(f"This notebook was run on {now}")
 
-        with open("toggle_button.html") as fin:
-            return HTML(fin.read())
+        return pkgutil.get_data(__name__, "toggle_button.html")
 
     def download_ppmi_metadata(
         self,
         required_files: list,
-        *,
-        out_dir: str = "data",
         force: bool = False,
         headless: bool = True,
         timeout: int = 600,
@@ -181,8 +183,6 @@ class LivingParkUtils:
         ----------
         required_files : list
             Required PPMI study files (cvs files) supported by ppmi_downloader.
-        data_dir : str, default "data"
-            Output directory for download.
         force : bool, optional
         headless : bool, default True
             If True, prevent broswer window to open during download.
@@ -200,7 +200,7 @@ class LivingParkUtils:
             missing_files = [
                 x
                 for x in required_files
-                if not os.path.exists(os.path.join(out_dir, x))
+                if not os.path.exists(os.path.join(self.study_files_dir, x))
             ]
 
         if len(missing_files) > 0:
@@ -209,18 +209,18 @@ class LivingParkUtils:
                 ppmi = ppmi_downloader.PPMIDownloader()
                 ppmi.download_metadata(
                     missing_files,
-                    destination_dir=out_dir,
+                    destination_dir=self.study_files_dir,
                     headless=headless,
                     timeout=timeout,
                 )
             except Exception as e:
-                print("Download failed !")
+                print("Download failed!")
                 raise (e)
 
-            print("Download completed !")
+            print("Download completed!")
 
         else:
-            print("Download skipped: No missing files !")
+            print("Download skipped: No missing files!")
 
     def __install_datalad_cache(self) -> None:
         """Install the DataLad dataset.
@@ -321,3 +321,32 @@ class LivingParkUtils:
             "\nUsing lenient expression, returning None"
         )
         return None
+
+    def disease_duration(self) -> pd.DataFrame:
+        """
+        Return a DataFrame containing disease durations for each (patient,event) pair
+        available in "MDS_UPDRS_Part_III.csv".
+        """
+
+        # Download required files
+        self.download_ppmi_metadata(["MDS_UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"])
+
+
+        pddxdt = pd.read_csv(os.path.join(self.study_files_dir, "PD_Diagnosis_History.csv"))[["PATNO", "EVENT_ID", "PDDXDT"]]
+        pddxdt = pddxdt[(pddxdt["EVENT_ID"] == "SC") & pddxdt["PDDXDT"].notna()]
+        pdxdur = pd.read_csv(
+            os.path.join(self.study_files_dir, "MDS_UPDRS_Part_III.csv"), low_memory=False
+        )[["PATNO", "EVENT_ID", "INFODT"]]
+
+        PDDXDT_map = dict(zip(pddxdt["PATNO"].values, pddxdt["PDDXDT"].values))
+        pdxdur["PDDXDT"] = pdxdur["PATNO"].map(PDDXDT_map)
+
+        pdxdur["PDXDUR"] = pdxdur.apply(
+            lambda row: relativedelta(parse(row["INFODT"]), parse(row["PDDXDT"])).months
+            if row["PDDXDT"] is not np.nan
+            else np.nan,
+            axis=1,
+        )
+        pdxdur.drop(labels=["INFODT", "PDDXDT"], inplace=True, axis=1);
+
+        return pdxdur
