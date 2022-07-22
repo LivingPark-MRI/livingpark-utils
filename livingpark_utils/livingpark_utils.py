@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import ppmi_downloader
 import pytz  # type: ignore
+from boutiques.descriptor2func import function as descriptor2func
 from dateutil.parser import parse  # type: ignore
 from dateutil.relativedelta import relativedelta  # type: ignore
 from IPython.display import HTML
@@ -68,6 +69,7 @@ class LivingParkUtils:
         self.data_cache_path = data_cache_path
         self.study_files_dir = os.path.abspath(os.path.join("inputs", "study_files"))
 
+        self.setup_notebook_cache()
         os.makedirs(self.study_files_dir, exist_ok=True)
 
         # These variables will be set by the configuration
@@ -134,7 +136,8 @@ class LivingParkUtils:
         #     self.__install_datalad_cache()
         # else:
 
-        os.makedirs(self.data_cache_path, exist_ok=True)
+        for x in ("", "inputs", "outputs"):
+            os.makedirs(os.path.join(self.data_cache_path, x), exist_ok=True)
 
         # Make or update links to cache
         for x in ["inputs", "outputs"]:
@@ -301,11 +304,11 @@ class LivingParkUtils:
         assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
         if len(files) == 1:
             return files[0]
-        print(
-            "Warning: no nifti file found for: "
-            f"{(subject_id, event_id, protocol_description)} with strict glob "
-            "expression. Trying with lenient glob expression."
-        )
+        # print(
+        #     "Warning: no nifti file found for: "
+        #     f"{(subject_id, event_id, protocol_description)} with strict glob "
+        #     "expression. Trying with lenient glob expression."
+        # )
         expression = os.path.join(
             self.data_cache_path,
             base_dir,
@@ -318,11 +321,11 @@ class LivingParkUtils:
         assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
         if len(files) == 1:
             return files[0]
-        print(
-            f"Warning: no nifti file found for: "
-            f"{(subject_id, event_id, protocol_description)} "
-            "with lenient expression, returning None"
-        )
+        # print(
+        #     f"Warning: no nifti file found for: "
+        #     f"{(subject_id, event_id, protocol_description)} "
+        #     "with lenient expression, returning None"
+        # )
         return None
 
     def disease_duration(self) -> pd.DataFrame:
@@ -526,3 +529,221 @@ class LivingParkUtils:
                         os.path.relpath(os.path.abspath(file_name), start=dest_file),
                         dest_file,
                     )
+
+    def cohort_id(self, cohort: pd.DataFrame) -> str:
+        """Return a unique id for the cohort.
+
+        The id is built as the hash of the sorted list of patient ids in the cohort.
+        Since cohort_ids may be used to create file names, negative signs ('-')
+        are replaced with underscore characters ('_') since SPM crashes on file names
+        containing negative signs. Therefore, the cohort id is a string that cannot
+        be cast to an integer.
+
+        Parameters
+        ----------
+        cohort: pd.DataFrame
+            A Pandas DataFrame with a column named 'PATNO'.
+
+        Return
+        ------
+        string
+            A string containing the unique id of the cohort.
+        """
+        return str(hash(tuple(sorted(cohort["PATNO"])))).replace("-", "_")
+
+    def write_spm_batch_files(
+        self,
+        template_job_filename: str,
+        replaced_keys: dict,
+        executable_job_file_name: str,
+    ) -> None:
+        """Write SPM batch files from a template by replacing placeholder keys in it.
+
+        Open the SPM batch file in template_job_filename, search and replace keys found
+        in replaced_keys, and write the result in two files, a "batch" file and a "job"
+        file. Output file names are built from job_file_name. Job file names must end
+        with '_job.m'
+
+        Parameters
+        ----------
+        template_job_filename: str
+            File name of template SPM job. Contains placeholder keys to be replaced to
+            create an executable batch. No format is specified for the keys, make sure
+            that they are uniquely identified in the template file!
+
+        replaced_keys: dict
+            Dictionary containing keys to be replaced by values in the template job
+            file. Example: {'[IMAGE]': 'inputs/sub-1234/ses-1/anat/image.nii'}. Make
+            sure that the keys are present in the template job file name!
+
+        executable_job_file_name: str
+            File name where to write the executable job file. Must end in '_job.m'.
+            An SPM batch file calling this job file will also be written with a
+            '_batch.m' ending.
+
+        Return
+        ------
+        None
+        """
+
+        def replace_keys(string, replace_keys):
+            for k in replace_keys:
+                string = string.replace(k, replace_keys[k])
+            return string
+
+        # Read template file
+        with open(template_job_filename) as f:
+            content = f.read()
+
+        assert template_job_filename.endswith("_job.m")
+        assert executable_job_file_name.endswith("_job.m")
+
+        with open(executable_job_file_name, "w") as f:
+            f.write(replace_keys(content, replaced_keys))
+
+        print(f"Job batch file written in {os.path.basename(executable_job_file_name)}")
+
+        # Batch file
+        content_batch = pkgutil.get_data(
+            __name__, os.path.join("templates", "call_batch.m")
+        )
+        assert content_batch is not None, "Cannot read batch template file."
+        content_batch_str = content_batch.decode("utf-8")
+        tempfile_name_batch = executable_job_file_name.replace("_job", "_batch")
+
+        with open(tempfile_name_batch, "w") as f:
+            job_dir = os.path.dirname(os.path.abspath(executable_job_file_name))
+            f.write(
+                replace_keys(
+                    content_batch_str,
+                    {
+                        "[BATCH]": f"addpath('{job_dir}')"
+                        + os.linesep
+                        + os.path.basename(executable_job_file_name.replace(".m", ""))
+                    },
+                )
+            )
+
+        print(f"Batch file written in {os.path.basename(tempfile_name_batch)}")
+
+    def run_spm_batch_file(
+        self,
+        executable_job_file_name: str,
+        boutiques_descriptor: str = "zenodo.6881412",
+        force: bool = False,
+    ):
+        """Run an SPM batch file using Boutiques.
+
+        Requires Docker or Singularity container engines (Singularity untested yet in
+        this context). Download the Boutiques descriptor from Zenodo or use the local
+        file passed as argument. Download the Docker container, create a Boutiques
+        invocation and run it. Write logs in log file created from
+        executable_job_file_name (example: pre_processing_1234.log). If log file
+        already exists, skip execution unless force is set to True.
+
+        Parameters
+        ----------
+        executable_job_file_name: str
+            An SPM job file ready to be executed.
+            Example: 'code/batches/pre_processing_1234_job.m'.
+            See self.write_spm_batch_files for a possible way to create such a file.
+
+
+        boutiques_descriptor: str
+            A Boutiques descriptor in the form of a Zenodo id, local file name, or
+            JSON string. Don't modify the default value unless you know what you are
+            doing.
+
+        force: bool
+            Force execution even if log file already exists for this execution.
+            Default: False.
+
+        Return
+        ------
+        boutiques.ExecutionOutput
+            Boutiques execution output object containing exit code and various logs.
+        """
+        log_dir = os.path.join("outputs", "logs")
+        os.makedirs(log_dir, exist_ok=True)
+
+        log_file_name = os.path.abspath(
+            os.path.join(
+                log_dir,
+                os.path.basename(executable_job_file_name.replace("_job.m", ".log")),
+            )
+        )
+        spm_batch_file = executable_job_file_name.replace("_job", "_batch")
+
+        if not force:
+            if os.path.exists(log_file_name):
+                print(
+                    f"Log file {os.path.basename(log_file_name)} exists, "
+                    + "skipping batch execution (remove file or use force=True "
+                    + "to force execution)"
+                )
+                return
+            else:
+                print(
+                    f"Log file {os.path.basename(log_file_name)} does not exist, "
+                    + "running batch"
+                )
+
+        # Initialize Boutiques Python function for descriptor
+        spm_batch = descriptor2func(boutiques_descriptor)
+
+        output = spm_batch(
+            "launch",
+            "-s",
+            "-u",
+            spm_batch_file=spm_batch_file,
+            log_file_name=log_file_name,
+        )
+
+        assert (
+            output.exit_code == 0
+        ), f"Execution error, inspect output object for logs: {output}"
+
+        print("Execution was successful.")
+
+        return output
+
+    def smwc_scan(
+        self,
+        tissue_class: int,
+        patno: int,
+        visit: str,
+        pre_processing_dir: str = "pre_processing",
+    ):
+        """Find the SPM tissue class file of patient at visit with given protocol.
+
+        Scans the outputs directory for an SPM tissue class file obtained from nifti
+        file of patient at visit using protocol description. To find a tissue file,
+        matches glob expression
+        outputs/{pre_processing_dir}sub-{patno}/ses-{visit}/anat/smwc{tissue_class}PPMI*.nii
+        Returns an error if more than one file is found that matches this expression.
+
+        Paramters
+        ---------
+        tissue_class: int
+            1 (grey matter) or 2 (white matter)
+
+        patno: int
+            PPMI patient identifier
+
+        visit: str
+            PPMI visit name. Example: 'V04'.
+
+        pre_processing_dir: str
+            Directory in 'outputs' where pre-processing results are stored.
+        """
+        if tissue_class not in (1, 2):
+            raise Exception(f"Unrecognized tissue class: {tissue_class}")
+        dirname = os.path.join("outputs", pre_processing_dir)
+        expression = (
+            f"{dirname}/sub-{patno}/ses-{visit}/anat/smwc{tissue_class}PPMI*.nii"
+        )
+        files = glob.glob(expression)
+        assert (
+            len(files) == 1
+        ), f"Zero or more than 1 files were matched by expression: {expression}"
+        return os.path.abspath(files[0])
