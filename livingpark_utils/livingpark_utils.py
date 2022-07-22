@@ -7,10 +7,8 @@ import pkgutil
 import subprocess
 import sys
 import warnings
-from configparser import SafeConfigParser
 from pprint import pprint
 
-import datalad
 import numpy as np
 import pandas as pd
 import ppmi_downloader
@@ -26,102 +24,21 @@ class LivingParkUtils:
 
     def __init__(
         self,
-        notebook_name: str,
-        config_file: str = ".livingpark_config",
         data_cache_path: str = ".cache",
-        use_bic_server: bool = None,
-        ssh_username: str = None,
-        ssh_host: str = "login.bic.mni.mcgill.ca",  # TODO: call this cache server
-        ssh_host_dir: str = "/data/pd/ppmi/livingpark-papers",
     ) -> None:
         """Initialize a LivingPark notebook.
 
-        When undefined, the parameters of the LivingPark configuration are set by
-            #. Looking for configuration file
-            #. Looking for environment variables
-            #. Prompting the user
-
-        Notes
-        -----
-        The configuration parameters for SSH are only used when Datalad is.
-
         Parameters
         ----------
-        notebook_name: str
-            Name of the notebook. Used as DataLad dataset name when DataLad is used.
-            Example: "scherfler-etal".
-        config_file: str, default ".livingpark_config"
-            File path of LivingPark configuration.
         data_cache_path: str, default ".cache"
             Local path where to store the dataset cache.
             Keep default value unless you know what you're doing.
-        use_bic_server: TODO check type
-            TODO add description.
-        ssh_host: str, default "login.bic.mni.mcgill.ca"
-            SSH host where DataLad dataset is stored.
-        ssh_host_dir: str, default "/data/pd/ppmi/livingpark-papers"
-            Absolute path to host directory where DataLad dataset is stored.
         """
-        self.notebook_name = notebook_name
-        self.config_file = os.path.abspath(config_file)
-        self.ssh_host = ssh_host
-        self.ssh_host_dir = ssh_host_dir
         self.data_cache_path = data_cache_path
         self.study_files_dir = os.path.abspath(os.path.join("inputs", "study_files"))
 
         self.setup_notebook_cache()
         os.makedirs(self.study_files_dir, exist_ok=True)
-
-        # These variables will be set by the configuration
-        self.use_bic_server = use_bic_server
-        self.ssh_username = ssh_username
-
-        save_config = True
-
-        # look in config file
-        if os.path.exists(self.config_file):
-            config = SafeConfigParser()
-            config.read(self.config_file)
-            self.use_bic_server = bool(config.get("livingpark", "use_bic_server"))
-            if self.use_bic_server == "True":
-                self.ssh_username = config.get("livingpark", "ssh_username")
-            save_config = False
-
-        if self.use_bic_server is None:
-            # read environment variable
-            var = os.environ.get("LIVINGPARK_USE_BIC_SERVER")
-            if var is not None:
-                self.use_bic_server = bool(var)
-                save_config = False
-            if self.use_bic_server:
-                self.ssh_username = os.environ.get("LIVINGPARK_SSH_USERNAME")
-                if self.ssh_username is None:
-                    raise Exception(
-                        "Environment variable LIVINGPARK_SSH_USERNAME must be defined"
-                        " since LIVINGPARK_USE_BIC_SERVER is set."
-                    )
-
-        if self.use_bic_server is None:
-            # prompt user
-            answer = input(f"Do you have an account on {self.ssh_host}? (y/n) ")
-            if any(answer.lower() == f for f in ["yes", "y", "1", "ye"]):
-                self.use_bic_server = True
-                self.ssh_username = input(f"What's your username on {self.ssh_host}? ")
-            else:
-                self.use_bic_server = False
-            # TODO: attempt ssh connection / check git-annex config
-
-        if save_config:
-            print("write config file")
-            # write config file
-            config = SafeConfigParser()
-            config.read(self.config_file)
-            config.add_section("livingpark")
-            config.set("livingpark", "use_bic_server", str(self.use_bic_server))
-            if self.use_bic_server:
-                config.set("livingpark", "ssh_username", self.ssh_username)
-            with open(self.config_file, "w") as f:
-                config.write(f)
 
     def setup_notebook_cache(self) -> None:
         """Create, install, and update the cache directory, if needed.
@@ -130,12 +47,6 @@ class LivingParkUtils:
         -----
         Aggregate the inputs and outputs into a single dataset by creating symlinks.
         """
-        # TODO: enable DataLad synchro with BIC server
-        # Create or update cache
-        # if self.use_bic_server:
-        #     self.__install_datalad_cache()
-        # else:
-
         for x in ("", "inputs", "outputs"):
             os.makedirs(os.path.join(self.data_cache_path, x), exist_ok=True)
 
@@ -228,26 +139,26 @@ class LivingParkUtils:
         else:
             print("Download skipped: No missing files!")
 
-    def __install_datalad_cache(self) -> None:
-        """Install the DataLad dataset.
+    # def __install_datalad_cache(self) -> None:
+    #     """Install the DataLad dataset.
 
-        Notes
-        -----
-        Requires a functional ssh connection to `self.ssh_username`@`self.host`.
-        Located at `self.host_dir`/`self.notebook_name`/`self.data_cache_path`.
-        """
-        if os.path.exists(self.data_cache_path):
-            # noqa: TODO check if path is a valid DataLad dataset without doing d.status because it's too long.
-            d = datalad.api.Dataset(self.data_cache_path)
-            d.update(how="merge")
-        else:
-            datalad.api.install(
-                source=(
-                    f"{self.ssh_username}@{self.ssh_host}:"
-                    f"{self.ssh_host_dir}/{self.notebook_name}"
-                ),
-                path=self.data_cache_path,
-            )
+    #     Notes
+    #     -----
+    #     Requires a functional ssh connection to `self.ssh_username`@`self.host`.
+    #     Located at `self.host_dir`/`self.notebook_name`/`self.data_cache_path`.
+    #     """
+    #     if os.path.exists(self.data_cache_path):
+    #         # noqa: TODO check if path is a valid DataLad dataset without doing d.status because it's too long.
+    #         d = datalad.api.Dataset(self.data_cache_path)
+    #         d.update(how="merge")
+    #     else:
+    #         datalad.api.install(
+    #             source=(
+    #                 f"{self.ssh_username}@{self.ssh_host}:"
+    #                 f"{self.ssh_host_dir}/{self.notebook_name}"
+    #             ),
+    #             path=self.data_cache_path,
+    #         )
 
     def clean_protocol_description(self, desc: str) -> str:
         """Create valid protocol description for file names (as done by PPMI).
