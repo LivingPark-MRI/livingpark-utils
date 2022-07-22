@@ -1,0 +1,6 @@
+.livingpark_config
+build
+dist
+livingpark_utils.egg-info
+__pycache__
+.ipynb_checkpoints
