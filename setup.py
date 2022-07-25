@@ -6,6 +6,12 @@ install_requires = [
     "datalad",
     "IPython",
     "ppmi_downloader",
+    "nilearn",
+    "boutiques",
+    "PIL",
+    "matplotlib",
+    "numpy",
+    "pandas",
 ]
 
 setup(

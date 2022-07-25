@@ -9,6 +9,7 @@ import sys
 import warnings
 from pprint import pprint
 
+import nilearn.plotting as nplt
 import numpy as np
 import pandas as pd
 import ppmi_downloader
@@ -17,6 +18,9 @@ from boutiques.descriptor2func import function as descriptor2func
 from dateutil.parser import parse  # type: ignore
 from dateutil.relativedelta import relativedelta  # type: ignore
 from IPython.display import HTML
+from IPython.display import Image as ImageDisplay
+from matplotlib import pyplot as plt
+from PIL import Image
 
 
 class LivingParkUtils:
@@ -542,7 +546,7 @@ class LivingParkUtils:
         executable_job_file_name: str,
         boutiques_descriptor: str = "zenodo.6881412",
         force: bool = False,
-    ):
+    ) -> None:
         """Run an SPM batch file using Boutiques.
 
         Requires Docker or Singularity container engines (Singularity untested yet in
@@ -624,7 +628,7 @@ class LivingParkUtils:
         patno: int,
         visit: str,
         pre_processing_dir: str = "pre_processing",
-    ):
+    ) -> str:
         """Find the SPM tissue class file of patient at visit with given protocol.
 
         Scans the outputs directory for an SPM tissue class file obtained from nifti
@@ -646,6 +650,10 @@ class LivingParkUtils:
 
         pre_processing_dir: str
             Directory in 'outputs' where pre-processing results are stored.
+
+        Return
+        ------
+        str: path of a tissue class file
         """
         if tissue_class not in (1, 2):
             raise Exception(f"Unrecognized tissue class: {tissue_class}")
@@ -658,3 +666,119 @@ class LivingParkUtils:
             len(files) == 1
         ), f"Zero or more than 1 files were matched by expression: {expression}"
         return os.path.abspath(files[0])
+
+    def export_spm_segmentations(
+        self,
+        cohort: pd.DataFrame,
+        folder: str,
+        cut_coords: tuple = (-28, -7, 17),
+        force: bool = False,
+        extension: str = "png",
+    ) -> None:
+        """Export segmentation images as 2D image files.
+
+        Meant to be used for quality control. make_gifs can assemble these images
+        in an animate gif.
+
+        Parameters
+        ----------
+        cohort: pd.DataFrame
+            LivingPark cohort to export. Must have a column called 'File name'.
+
+        folder: str
+            Folder where to export the segmentation images.
+
+        cut_coords: tuple
+            Passed to Nilearn viewer. The MNI coordinates of the cutting plane.
+
+        force: bool
+            If True, force export to existing folder. Removes all the files in folder
+            before writing new ones.
+
+        extension: str
+            Image file extension supported by Matplotlib. Example: 'png'.
+        """
+        alpha = 0.5
+
+        if (not force) and os.path.exists(folder):
+            print(
+                f"Folder {folder} already exists, skipping image export "
+                + " (remove folder or use --force to force)."
+            )
+            return
+
+        if os.path.exists(folder):  # force is True
+            print(f"Folder {folder} already exists, removing its content")
+            for f in glob.glob(os.path.join(folder, "*")):
+                os.remove(f)
+
+        os.makedirs(folder, exist_ok=True)
+
+        for i in range(len(cohort)):
+
+            input_file = cohort["File name"].values[i]
+            subj_id = cohort["PATNO"].values[i]
+
+            output_file_name = input_file.replace(
+                os.path.join(self.data_cache_path, "inputs"),
+                os.path.join("outputs", "pre_processing"),
+            )
+            output_file_c1 = output_file_name.replace("PPMI", "smwc1PPMI")
+            output_file_c2 = output_file_name.replace("PPMI", "smwc2PPMI")
+
+            fig = plt.figure()
+            display = nplt.plot_anat(
+                cut_coords=list(cut_coords), figure=fig, title=f"#{i}/{len(cohort)}"
+            )
+            display.add_overlay(output_file_c1, cmap="Reds", threshold=0.1, alpha=alpha)
+            display.add_overlay(
+                output_file_c2, cmap="Blues", threshold=0.1, alpha=alpha
+            )
+
+            os.makedirs(folder, exist_ok=True)
+            plt.savefig(
+                os.path.join(
+                    folder, f"qc_{self.cohort_id(cohort)}_{subj_id}.{extension}"
+                )
+            )
+            plt.close(fig)  # so as to not display the figure
+
+    def make_gif(self, frame_folder: str, output_name: str = "animation.gif") -> None:
+        """Make gifs from a set of images located in the same folder.
+
+        Parameters
+        ----------
+        frame_folder : str
+            Folder where frames are stored. Frames must be in a format supported by PIL.
+
+        output_name : str
+            Base name of the gif file. Will be written in frame_folder.
+        """
+        frames = [
+            Image.open(image)
+            for image in glob.glob(os.path.join(f"{frame_folder}", "*.png"))
+        ]
+        frame_one = frames[0]
+        frame_one.save(
+            os.path.join(frame_folder, output_name),
+            format="GIF",
+            append_images=frames,
+            save_all=True,
+            duration=1000,
+            loop=0,
+        )
+        print(f"Wrote {os.path.join(frame_folder, output_name)}")
+
+    def qc_spm_segmentations(self, cohort) -> None:
+        """Display a gif file with SPM segmentation results from the cohort.
+
+        Parameters
+        ----------
+        cohort: pd.DataFrame
+            LivingPark cohort to QC. Must have a column called 'File name'.
+        """
+        qc_dir = f"qc_{self.cohort_id(cohort)}"
+
+        self.export_spm_segmentations(cohort, qc_dir)
+        self.make_gif(qc_dir)
+        return ImageDisplay(url=os.path.join(qc_dir, "animation.gif"))
