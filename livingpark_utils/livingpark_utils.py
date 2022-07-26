@@ -2,7 +2,7 @@
 import datetime
 import glob
 import math
-import os
+import os.path
 import pkgutil
 import subprocess
 import sys
@@ -89,7 +89,12 @@ class LivingParkUtils:
         now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
         print(f"This notebook was run on {now}")
 
-        return pkgutil.get_data(__name__, "toggle_button.html")
+        return HTML(
+            filename=os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "toggle_button.html",
+            )
+        )
 
     def download_ppmi_metadata(
         self,
