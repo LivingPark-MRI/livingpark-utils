@@ -15,14 +15,25 @@ utils.disease_duration()
 utils.moca2mmse(2)
 ```
 
+Usage to execute utility notebooks:
+
+```python
+from livingpark_utils.scripts import (
+    mri_metadata,
+    pd_status,
+)
+```
+
+Note: This will execute the notebooks directly.
+
 ## Contributing guidelines
 
 We welcome contributions of any kind in the form of Pull-Request to this repository.
 See also [LivingPark contributing guidelines](https://github.com/LivingPark-MRI/documentation).
 
-
 ### Code formatting
 
 Before committing:
-* Run `psf/black` on the modified file(s)
-* Run `pre-commit run --all`
+
+- Run `psf/black` on the modified file(s)
+- Run `pre-commit run --all`
