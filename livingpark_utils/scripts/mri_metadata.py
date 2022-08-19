@@ -9,6 +9,26 @@
 # 
 # The resulting file can be used to build imaging cohorts based on PPMI.
 
+# In[1]:
+
+
+from IPython.display import HTML
+
+HTML('''<script>
+code_show=true; 
+function code_toggle() {
+ if (code_show){
+ $('div.input').hide();
+ } else {
+ $('div.input').show();
+ }
+ code_show = !code_show
+} 
+$( document ).ready(code_toggle);
+</script>
+<form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the Python code."></form>''')
+
+
 # # Data download
 # 
 # Let's download information about PPMI 3D T1-weighted scans:
@@ -16,16 +36,17 @@
 # In[2]:
 
 
-import livingpark_utils
+import os
+import os.path as op
+import pandas as pd
+import ppmi_downloader
 
-utils = livingpark_utils.LivingParkUtils()
-utils.notebook_init()
+data_dir = 'data'
 
-utils.download_3D_T1_info([
-    '3D_mri_info.csv',
-])
+if not op.exists(data_dir):
+    os.makedirs(data_dir)
 
-mri_file_name = ''
+mri_file_name = '3D_mri_info.csv'
 required_files = [mri_file_name]
 missing_files = [x for x in required_files if not op.exists(os.path.join(data_dir, x))]
 
