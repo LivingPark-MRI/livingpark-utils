@@ -2,9 +2,8 @@ name: gen_script
 
 on:
   push:
-    branches: main
-  pull_request:
-    branches: main
+    branches:
+      - main
 
 jobs:
   gen_script:
@@ -12,8 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.2
-        with:
-          ref: ${{ github.head_ref }}
       - uses: actions/setup-python@v4.1.0
         with:
           python-version: "3.10"
