@@ -26,6 +26,14 @@ from livingpark_utils.scripts import (
 
 Note: This will execute the notebooks directly.
 
+## Troubleshooting
+
+### Permission issues on Windows
+
+We use symbolic links when creating the folder for cached data.
+Unfortunately, by default, Windows does not authorize users to create symbolic links.
+To fix this issue on your machine, please follow the guide from this [blog post](https://www.scivision.dev/windows-symbolic-link-permission-enable/).
+
 ## Contributing guidelines
 
 We welcome contributions of any kind in the form of Pull-Request to this repository.
