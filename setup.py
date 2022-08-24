@@ -8,7 +8,7 @@ install_requires = [
     "ppmi_downloader",
     "nilearn",
     "boutiques",
-    "PIL",
+    "pillow",
     "matplotlib",
     "numpy",
     "pandas",
@@ -24,4 +24,5 @@ setup(
     packages=["livingpark_utils"],
     python_requires=">=3.10",
     install_requires=install_requires,
+    include_package_data=True,
 )
