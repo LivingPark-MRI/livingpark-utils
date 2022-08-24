@@ -1,4 +1,5 @@
 """Provide utility function for the LivingPark notebook for paper replication."""
+import csv
 import datetime
 import glob
 import math
@@ -9,6 +10,7 @@ import sys
 import warnings
 from pprint import pprint
 
+import boutiques
 import nilearn.plotting as nplt
 import numpy as np
 import pandas as pd
@@ -89,7 +91,12 @@ class LivingParkUtils:
         now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
         print(f"This notebook was run on {now}")
 
-        return pkgutil.get_data(__name__, "toggle_button.html")
+        return pkgutil.get_data(self.package_path(), "toggle_button.html")
+
+    def package_path(self) -> str:
+        '''Return path of this package'''
+
+        return os.path.dirname(__file__)
 
     def download_ppmi_metadata(
         self,
@@ -182,7 +189,7 @@ class LivingParkUtils:
         event_id: str,
         protocol_description: str,
         base_dir: str = "inputs",
-    ) -> str | None:
+    ) -> str:
         """Return cached nifti files, if any.
 
         Search for nifti file matching `subject_id`, `event_id` and
@@ -199,13 +206,18 @@ class LivingParkUtils:
         protocol_description: str
             Protocol description. Example: "MPRAGE GRAPPA"
         base_dir: str, default "inputs"
-            TODO Describe this. Not sure what it is exactly.
+            The base directory where to look for in the cache.
+            Example: 'outputs/pre_processing'. This is useful when the nifti files
+            are present in more than a single location. For instance, when using SPM
+            pipelines, it is usually reasonable to link the nifti files from the inputs
+            directory to the outputs directory, as SPM write its outputs next to the
+            inputs by default.
 
         Returns
         -------
-        str or None
+        str | None:
             File name matching the `subject_id`, `event_id`, and if possible
-            `protocol_description`. None if no matching file is found.
+            `protocol_description`. Empty string if no matching file is found.
         """
         expression = os.path.join(
             self.data_cache_path,
@@ -241,7 +253,7 @@ class LivingParkUtils:
         #     f"{(subject_id, event_id, protocol_description)} "
         #     "with lenient expression, returning None"
         # )
-        return None
+        return ""
 
     def disease_duration(self) -> pd.DataFrame:
         """Return a DataFrame containing disease durations.
@@ -373,15 +385,13 @@ class LivingParkUtils:
             ),
             axis=1,
         )
-        print(
-            f"Number of available subjects: {len(cohort[cohort['File name'].notna()])}"
-        )
-        print(f"Number of missing subjects: {len(cohort[cohort['File name'].isna()])}")
+        print(f"Number of available subjects: {len(cohort[cohort['File name'] != ''])}")
+        print(f"Number of missing subjects: {len(cohort[cohort['File name'] == ''])}")
 
         # Download missing file names
         try:
             ppmi_dl = ppmi_downloader.PPMIDownloader()
-            missing_subject_ids = cohort[cohort["File name"].isna()]["PATNO"]
+            missing_subject_ids = cohort[cohort["File name"] == ""]["PATNO"]
             print(f"Downloading image data of {len(missing_subject_ids)} subjects")
             ppmi_dl.download_imaging_data(
                 missing_subject_ids,
@@ -546,7 +556,7 @@ class LivingParkUtils:
         executable_job_file_name: str,
         boutiques_descriptor: str = "zenodo.6881412",
         force: bool = False,
-    ) -> None:
+    ) -> boutiques.ExecutorOutput:
         """Run an SPM batch file using Boutiques.
 
         Requires Docker or Singularity container engines (Singularity untested yet in
@@ -575,7 +585,7 @@ class LivingParkUtils:
 
         Return
         ------
-        boutiques.ExecutionOutput
+        boutiques.ExecutorOutput
             Boutiques execution output object containing exit code and various logs.
         """
         log_dir = os.path.join("outputs", "logs")
@@ -622,14 +632,15 @@ class LivingParkUtils:
 
         return output
 
-    def smwc_scan(
+    def find_tissue_image_in_cache(
         self,
         tissue_class: int,
         patno: int,
         visit: str,
+        image_prefix: str = "",
         pre_processing_dir: str = "pre_processing",
     ) -> str:
-        """Find the SPM tissue class file of patient at visit with given protocol.
+        """Find SPM tissue class image of patient at visit with given protocol.
 
         Scans the outputs directory for an SPM tissue class file obtained from nifti
         file of patient at visit using protocol description. To find a tissue file,
@@ -651,21 +662,32 @@ class LivingParkUtils:
         pre_processing_dir: str
             Directory in 'outputs' where pre-processing results are stored.
 
+        image_prefix: str
+            Prefix to use in addition to 'c' in the image name. Examples: 'r', 'smw'.
+
         Return
         ------
-        str: path of a tissue class file
+        str: path of a tissue class file. Empty string if no tissue class file is found.
         """
-        if tissue_class not in (1, 2):
+        if tissue_class not in (1, 2, 3, 4, 5, 6):
             raise Exception(f"Unrecognized tissue class: {tissue_class}")
         dirname = os.path.join("outputs", pre_processing_dir)
-        expression = (
-            f"{dirname}/sub-{patno}/ses-{visit}/anat/smwc{tissue_class}PPMI*.nii"
+        expression = os.path.join(
+            f"{dirname}",
+            f"sub-{patno}",
+            f"ses-{visit}",
+            "anat",
+            f"{image_prefix}c{tissue_class}PPMI*.nii",
         )
         files = glob.glob(expression)
         assert (
-            len(files) == 1
-        ), f"Zero or more than 1 files were matched by expression: {expression}"
-        return os.path.abspath(files[0])
+            len(files) <= 1
+        ), f"More than 1 files were matched by expression: {expression}"
+        if len(files) == 0:
+            print(f"No file matched by expression: {expression}")
+            return ""
+        else:
+            return os.path.abspath(files[0])
 
     def export_spm_segmentations(
         self,
@@ -782,3 +804,226 @@ class LivingParkUtils:
         self.export_spm_segmentations(cohort, qc_dir)
         self.make_gif(qc_dir)
         return ImageDisplay(url=os.path.join(qc_dir, "animation.gif"))
+
+    def spm_compute_missing_segmentations(
+        self, cohort: pd.DataFrame
+    ) -> boutiques.ExecutorOutput | None:
+        """Run SPM segmentation batch for missing segmentations in cohort.
+
+        For each (patient, event_id) pair in cohort, use self.find_tissue_image_in_cache
+        to find segmentation result (tissue probability map). If segmentation result
+        is not found, use SPM segmentation batch to create it.
+
+        Parameters
+        ----------
+        cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description.
+        Return
+        ------
+        boutiques.ExecutorOutput: Boutiques execution output of SPM batch. None if 
+        no segmentation was missing.
+        """
+        # Segmentation batch template
+        segmentation_job_template = os.path.join(
+            self.package_path(), "templates", "segmentation_job.m"
+        )
+        segmentation_job_name = os.path.abspath(
+            os.path.join(
+                "code", "batches", f"segmentation_{self.cohort_id(cohort)}_job.m"
+            )
+        )
+
+        image_files = sorted(
+            os.path.abspath(
+                self.find_nifti_file_in_cache(
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                    row["Description"],
+                    base_dir=os.path.join("outputs", "pre_processing"),
+                )
+            )
+            for index, row in cohort.iterrows()
+            if (  # segmentation doesn't exist
+                self.find_tissue_image_in_cache(1, row["PATNO"], row["EVENT_ID"]) == ""
+                and self.find_tissue_image_in_cache(2, row["PATNO"], row["EVENT_ID"])
+                == ""
+            )
+        )
+
+        print(f"Missing segmentations: {len(image_files)}")
+        if len(image_files) == 0:
+            return None
+
+        image_files_quote = [f"'{x},1'" for x in image_files]
+        self.write_spm_batch_files(
+            segmentation_job_template,
+            {"[IMAGES]": os.linesep.join(image_files_quote)},
+            segmentation_job_name,
+        )
+
+        output = self.run_spm_batch_file(segmentation_job_name)
+        return output
+
+    def spm_compute_dartel_normalization(
+        self, cohort: pd.DataFrame
+    ) -> boutiques.ExecutorOutput:
+        """Run DARTEL and normalization segmentation batch for subjects in cohort.
+
+        All the subjects in the cohort must already be segmented.
+        Run spm_compute_missing_segmentations to compute segmentations.
+
+        Parameters
+        ----------
+         cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO and EVENT_ID
+        Return
+        ------
+        boutiques.ExecutorOutput: Boutiques execution output of SPM batch.
+        """
+        # DARTEL and normalization batch
+        dartel_norm_job_template = os.path.join(
+            self.package_path(), "templates", "dartel_normalization_job.m"
+        )
+        dartel_norm_job_name = os.path.abspath(
+            os.path.join(
+                "code", "batches", f"dartel_norm_{self.cohort_id(cohort)}_job.m"
+            )
+        )
+
+        c1_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    1,
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        c2_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    2,
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        rc1_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    1, row["PATNO"], row["EVENT_ID"], image_prefix="r"
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        rc2_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    2, row["PATNO"], row["EVENT_ID"], image_prefix="r"
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        rc1_files_quote = [f"'{x},1'" for x in rc1_image_files]
+        rc2_files_quote = [f"'{x},1'" for x in rc2_image_files]
+        c1_files_quote = [f"'{x}'" for x in c1_image_files]
+        c2_files_quote = [f"'{x}'" for x in c2_image_files]
+        self.write_spm_batch_files(
+            dartel_norm_job_template,
+            {
+                "[RC1_IMAGES]": os.linesep.join(rc1_files_quote),
+                "[RC2_IMAGES]": os.linesep.join(rc2_files_quote),
+                "[C1_IMAGES]": os.linesep.join(c1_files_quote),
+                "[C2_IMAGES]": os.linesep.join(c2_files_quote),
+                "[NORM_FWHM]": "4 4 4",
+            },
+            dartel_norm_job_name,
+        )
+
+        output = self.run_spm_batch_file(dartel_norm_job_name)
+        return output
+
+    def spm_compute_intra_cranial_volumes(self, cohort: pd.DataFrame) -> dict:
+        """Compute intra-cranial volume for all subjects in cohort.
+
+        All the subjects in the cohort must already be segmented and normalized to
+        MNI space.
+        Run spm_compute_missing_segmentations to compute segmentations and
+        spm_compute_dartel_normalization to normalize them.
+
+        Parameters
+        ----------
+         cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description
+        Return
+        ------
+        dict: Dictionary where keys are segmentation files and values are intra-cranial
+        volumes.
+        """
+        # Tissue volumes batch
+        tissue_volumes_job_template = os.path.join(
+            self.package_path(), "templates", "tissue_volumes_job.m"
+        )
+        volumes_job_name = os.path.abspath(
+            os.path.join(
+                "code", "batches", f"tissue_volumes_{self.cohort_id(cohort)}_job.m"
+            )
+        )
+
+        image_files = sorted(
+            os.path.abspath(
+                self.find_nifti_file_in_cache(
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                    row["Description"],
+                    base_dir=os.path.join("outputs", "pre_processing"),
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        segmentation_files = sorted(
+            x.replace(".nii", "_seg8.mat").replace(",1", "") for x in image_files
+        )
+        volumes_file = os.path.abspath(
+            os.path.join(
+                "outputs", os.path.basename(volumes_job_name.replace(".m", ".txt"))
+            )
+        )  # output file containing brain volumes
+        self.write_spm_batch_files(
+            tissue_volumes_job_template,
+            {
+                "[SEGMENTATION_FILES]": os.linesep.join(
+                    [f"'{x}'" for x in segmentation_files]
+                ),
+                "[VOLUMES_FILE]": volumes_file,
+            },
+            volumes_job_name,
+        )
+        self.run_spm_batch_file(volumes_job_name)
+
+        icvs = {}  # intra-cranial volumes per segmentation file
+
+        def subject_id(segmentation_filename):
+            """Return subject id from segmentation file name."""
+            sub_id = segmentation_filename.split(os.path.sep)[-4].replace("sub-", "")
+            assert int(sub_id)
+            return sub_id
+
+        with open(volumes_file) as csvfile:
+            reader = csv.DictReader(csvfile, quotechar="'")
+            for row in reader:
+                assert len(row) == 4, f"Malformed row: {row}"
+                icvs[subject_id(row["File"])] = (
+                    float(row["Volume1"])
+                    + float(row["Volume2"])
+                    + float(row["Volume3"])
+                )
+
+        return icvs
