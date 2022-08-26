@@ -820,12 +820,14 @@ class LivingParkUtils:
             A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description.
         Return
         ------
-        boutiques.ExecutorOutput: Boutiques execution output of SPM batch. None if 
+        boutiques.ExecutorOutput: Boutiques execution output of SPM batch. None if
         no segmentation was missing.
         """
         # Segmentation batch template
         segmentation_job_template = os.path.join(
-            self.package_path(), "templates", "segmentation_job.m"
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "segmentation_job.m",
         )
         segmentation_job_name = os.path.abspath(
             os.path.join(
@@ -882,7 +884,9 @@ class LivingParkUtils:
         """
         # DARTEL and normalization batch
         dartel_norm_job_template = os.path.join(
-            self.package_path(), "templates", "dartel_normalization_job.m"
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "dartel_normalization_job.m",
         )
         dartel_norm_job_name = os.path.abspath(
             os.path.join(
@@ -968,7 +972,9 @@ class LivingParkUtils:
         """
         # Tissue volumes batch
         tissue_volumes_job_template = os.path.join(
-            self.package_path(), "templates", "tissue_volumes_job.m"
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "tissue_volumes_job.m",
         )
         volumes_job_name = os.path.abspath(
             os.path.join(

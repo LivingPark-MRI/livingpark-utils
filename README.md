@@ -42,6 +42,6 @@ See also [LivingPark contributing guidelines](https://github.com/LivingPark-MRI/
 Make sure to:
 * Use Python type annotations
 * Include Python docstrings for all functions
-* Format docstrings 
+* Format docstrings
 * Run `psf/black` on the files you modify
 * Run `pre-commit run --all` before committing, this will be checked in your PR
