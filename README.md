@@ -4,13 +4,13 @@ A collection of utility functions to write LivingPark notebooks.
 
 Usage examples:
 
-```
+```python
 import livingpark_utils
 
-utils = livingpark_utils.LivingParkUtils('scherfler-etal')
+utils = livingpark_utils.LivingParkUtils("scherfler-etal")
 utils.notebook_init()
-utils.download_ppmi_metadata(['Demographics.csv'])
-utils.find_nifti_file_in_cache(x['PATNO'], x['EVENT_ID'], x['Description'])
+utils.download_ppmi_metadata(["Demographics.csv"])
+utils.find_nifti_file_in_cache(x["PATNO"], x["EVENT_ID"], x["Description"])
 utils.disease_duration()
 utils.moca2mmse(2)
 ```
@@ -24,7 +24,7 @@ run.mri_metadata()
 run.pd_status()
 ```
 
-Note: This will execute the notebooks directly.
+Note: Optionally use the `%%capture` cell magic to further hide notebook outputs.
 
 ## Troubleshooting
 

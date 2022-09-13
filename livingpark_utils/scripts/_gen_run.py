@@ -40,7 +40,7 @@ for root, dirs, files in os.walk(notebooks_dir):
 def $func_name():
     \"\"\"Execute auto-generated script for `../notebooks/${func_name}.ipynb`.\"\"\"
     with io.capture_output():
-        importlib.import_module(\"$func_name\", \"livingpark_utils.scripts\")
+        importlib.import_module(f\"livingpark_utils.scripts.$func_name\")
 """
                 )
                 fout.write(
