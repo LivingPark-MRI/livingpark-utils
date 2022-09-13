@@ -20,6 +20,7 @@ Notes
 The methods below need to be created manually when a new notebook is added.
 \"\"\"
 import importlib
+from IPython.utils import io
 """
     )
 
@@ -38,7 +39,8 @@ for root, dirs, files in os.walk(notebooks_dir):
 
 def $func_name():
     \"\"\"Execute auto-generated script for `../notebooks/${func_name}.ipynb`.\"\"\"
-    importlib.import_module(\"$func_name\", \"livingpatk_utils.scripts\")
+    with io.capture_output():
+        importlib.import_module(\"$func_name\", \"livingpark_utils.scripts\")
 """
                 )
                 fout.write(

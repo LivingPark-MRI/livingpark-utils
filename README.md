@@ -18,10 +18,10 @@ utils.moca2mmse(2)
 Usage to execute utility notebooks:
 
 ```python
-from livingpark_utils.scripts import (
-    mri_metadata,
-    pd_status,
-)
+from livingpark_utils.scripts import run
+
+run.mri_metadata()
+run.pd_status()
 ```
 
 Note: This will execute the notebooks directly.
