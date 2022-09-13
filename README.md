@@ -19,6 +19,7 @@ Usage to execute utility notebooks:
 
 ```python
 from livingpark_utils.scripts import run
+
 run.mri_metadata()
 run.pd_status()
 ```
