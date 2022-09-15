@@ -41,8 +41,8 @@ matlabbatch{1}.spm.tools.dartel.warp.settings.param(6).slam = 0.5;
 matlabbatch{1}.spm.tools.dartel.warp.settings.optim.lmreg = 0.01;
 matlabbatch{1}.spm.tools.dartel.warp.settings.optim.cyc = 3;
 matlabbatch{1}.spm.tools.dartel.warp.settings.optim.its = 3;
-matlabbatch{2}.spm.tools.dartel.mni_norm.template(1) = cfg_dep('Run Dartel (create Templates): Template (Iteration 6)', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','template', '()',{7}));
-matlabbatch{2}.spm.tools.dartel.mni_norm.data.subjs.flowfields(1) = cfg_dep('Run Dartel (create Templates): Flow Fields', substruct('.','val', '{}',{2}, '.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files', '()',{':'}));
+matlabbatch{2}.spm.tools.dartel.mni_norm.template(1) = cfg_dep('Run Dartel (create Templates): Template (Iteration 6)', substruct('.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','template', '()',{7}));
+matlabbatch{2}.spm.tools.dartel.mni_norm.data.subjs.flowfields(1) = cfg_dep('Run Dartel (create Templates): Flow Fields', substruct('.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}, '.','val', '{}',{1}), substruct('.','files', '()',{':'}));
 matlabbatch{2}.spm.tools.dartel.mni_norm.data.subjs.images = {
     {
       [C1_IMAGES]
@@ -50,7 +50,7 @@ matlabbatch{2}.spm.tools.dartel.mni_norm.data.subjs.images = {
     {
       [C2_IMAGES]
     }
-};
+    }';
 matlabbatch{2}.spm.tools.dartel.mni_norm.vox = [NaN NaN NaN];
 matlabbatch{2}.spm.tools.dartel.mni_norm.bb = [NaN NaN NaN
                                                NaN NaN NaN];
