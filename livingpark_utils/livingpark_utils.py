@@ -802,8 +802,11 @@ class LivingParkUtils:
         qc_dir = f"qc_{self.cohort_id(cohort)}"
 
         self.export_spm_segmentations(cohort, qc_dir)
-        self.make_gif(qc_dir)
-        return ImageDisplay(url=os.path.join(qc_dir, "animation.gif"))
+        animation_file = "animation.gif"
+        self.make_gif(qc_dir, output_name=animation_file)
+        gif_content = open(os.path.join(qc_dir, animation_file), "rb").read()
+        image = ImageDisplay(data=gif_content, format="png")
+        return image
 
     def spm_compute_missing_segmentations(
         self, cohort: pd.DataFrame
@@ -863,7 +866,8 @@ class LivingParkUtils:
             segmentation_job_name,
         )
 
-        output = self.run_spm_batch_file(segmentation_job_name)
+        # Force execution since we know there are missing files
+        output = self.run_spm_batch_file(segmentation_job_name, force=True)
         return output
 
     def spm_compute_dartel_normalization(
