@@ -747,8 +747,8 @@ class LivingParkUtils:
                 os.path.join(self.data_cache_path, "inputs"),
                 os.path.join("outputs", "pre_processing"),
             )
-            output_file_c1 = output_file_name.replace("PPMI", "c1PPMI")
-            output_file_c2 = output_file_name.replace("PPMI", "c2PPMI")
+            output_file_c1 = output_file_name.replace("PPMI", "c1PPMI", 1)
+            output_file_c2 = output_file_name.replace("PPMI", "c2PPMI", 1)
 
             fig = plt.figure()
             display = nplt.plot_anat(
