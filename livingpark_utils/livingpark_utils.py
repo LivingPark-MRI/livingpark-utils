@@ -752,7 +752,7 @@ class LivingParkUtils:
 
             fig = plt.figure()
             display = nplt.plot_anat(
-                anat_img=input_file, cut_coords=list(cut_coords), figure=fig, title=f"#{i}/{len(cohort)}"
+                anat_img=input_file, cut_coords=list(cut_coords) if cut_coords else None, figure=fig, title=f"#{i}/{len(cohort)}"
             )
 
             if mni_space or show_gm:
@@ -805,7 +805,7 @@ class LivingParkUtils:
         """
         qc_dir = f"qc_{self.cohort_id(cohort)}"
 
-        self.export_spm_segmentations(cohort, qc_dir)
+        self.export_spm_segmentations(cohort, qc_dir, mni_space=mni_space, show_gm=show_gm, show_wm=show_wm, cut_coords=cut_coords)
         animation_file = "animation.gif"
         self.make_gif(qc_dir, output_name=animation_file)
         gif_content = open(os.path.join(qc_dir, animation_file), "rb").read()
