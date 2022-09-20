@@ -693,7 +693,7 @@ class LivingParkUtils:
         cohort: pd.DataFrame,
         folder: str,
         mni_space: bool = True,
-        show_wm: bool =  True,
+        show_wm: bool = True,
         show_gm: bool = True,
         cut_coords: tuple = (-28, -7, 17),
         force: bool = False,
@@ -747,19 +747,34 @@ class LivingParkUtils:
                 os.path.join(self.data_cache_path, "inputs"),
                 os.path.join("outputs", "pre_processing"),
             )
-            output_file_c1 = output_file_name.replace("PPMI", "smwc1PPMI") if mni_space else output_file_name.replace("PPMI", "c1PPMI", 1)
-            output_file_c2 = output_file_name.replace("PPMI", "smwc2PPMI") if mni_space else output_file_name.replace("PPMI", "c1PPMI", 1)
+            output_file_c1 = (
+                output_file_name.replace("PPMI", "smwc1PPMI")
+                if mni_space
+                else output_file_name.replace("PPMI", "c1PPMI", 1)
+            )
+            output_file_c2 = (
+                output_file_name.replace("PPMI", "smwc2PPMI")
+                if mni_space
+                else output_file_name.replace("PPMI", "c1PPMI", 1)
+            )
 
             fig = plt.figure()
             display = nplt.plot_anat(
-                anat_img=input_file if mni_space else None, cut_coords=list(cut_coords) if cut_coords else None, figure=fig, title=f"#{i}/{len(cohort)}"
+                anat_img=input_file if mni_space else None,
+                cut_coords=list(cut_coords) if cut_coords else None,
+                figure=fig,
+                title=f"#{i}/{len(cohort)}",
             )
 
             if show_gm:
-                display.add_overlay(output_file_c1, cmap="Reds", threshold=0.1, alpha=alpha)
-            
+                display.add_overlay(
+                    output_file_c1, cmap="Reds", threshold=0.1, alpha=alpha
+                )
+
             if show_wm:
-                display.add_overlay(output_file_c2, cmap="Blues", threshold=0.1, alpha=alpha)
+                display.add_overlay(
+                    output_file_c2, cmap="Blues", threshold=0.1, alpha=alpha
+                )
 
             os.makedirs(folder, exist_ok=True)
             plt.savefig(
@@ -795,7 +810,14 @@ class LivingParkUtils:
         )
         print(f"Wrote {os.path.join(frame_folder, output_name)}")
 
-    def qc_spm_segmentations(self, cohort, mni_space = True, show_gm = True, show_wm = True, cut_coords=(-28, -7, 17)) -> None:
+    def qc_spm_segmentations(
+        self,
+        cohort,
+        mni_space=True,
+        show_gm=True,
+        show_wm=True,
+        cut_coords=(-28, -7, 17),
+    ) -> None:
         """Display a gif file with SPM segmentation results from the cohort.
 
         Parameters
@@ -805,7 +827,14 @@ class LivingParkUtils:
         """
         qc_dir = f"qc_{self.cohort_id(cohort)}"
 
-        self.export_spm_segmentations(cohort, qc_dir, mni_space=mni_space, show_gm=show_gm, show_wm=show_wm, cut_coords=cut_coords)
+        self.export_spm_segmentations(
+            cohort,
+            qc_dir,
+            mni_space=mni_space,
+            show_gm=show_gm,
+            show_wm=show_wm,
+            cut_coords=cut_coords,
+        )
         animation_file = "animation.gif"
         self.make_gif(qc_dir, output_name=animation_file)
         gif_content = open(os.path.join(qc_dir, animation_file), "rb").read()
