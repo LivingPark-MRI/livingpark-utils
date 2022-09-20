@@ -5,13 +5,16 @@ Notes
 The methods below need to be created manually when a new notebook is added.
 """
 import importlib
+from IPython.utils import io
 
 
 def mri_metadata():
     """Execute auto-generated script for `../notebooks/mri_metadata.ipynb`."""
-    importlib.import_module("mri_metadata", "livingpatk_utils.scripts")
+    with io.capture_output():
+        importlib.import_module(f"livingpark_utils.scripts.mri_metadata")
 
 
 def pd_status():
     """Execute auto-generated script for `../notebooks/pd_status.ipynb`."""
-    importlib.import_module("pd_status", "livingpatk_utils.scripts")
+    with io.capture_output():
+        importlib.import_module(f"livingpark_utils.scripts.pd_status")
