@@ -81,7 +81,7 @@ class LivingParkUtils:
         print("Installing notebook dependencies (see log in install.log)... ")
         f = open("install.log", "wb")
         subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+            [sys.executable, "-m", "pip", "install", "-U", "-r", "requirements.txt"],
             stdout=f,
             stderr=f,
         )
