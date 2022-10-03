@@ -1,6 +1,7 @@
 """Provide utility function for the LivingPark notebook for Mak et al papers."""
 from collections import defaultdict
 from itertools import combinations
+
 import pandas as pd
 
 visit2month = {
@@ -26,6 +27,7 @@ visit2month = {
     "V19": 144,
     "V20": 156,
 }
+
 
 def find_visit_pairs(months: int) -> dict:
     """Return the pairs of visits closest to each other.
@@ -167,9 +169,8 @@ def create_cohort(*, pd_df: pd.DataFrame, hc_df: pd.DataFrame, months: int) -> t
     mci = sample_cohort(visit_df[visit_df["COGSTATE"] == 2], n=36)
     nc = sample_cohort(
         visit_df[
-            (visit_df["COGSTATE"] == 1)
-            & ~visit_df["PATNO"].isin(mci["PATNO"].unique())
-            ],
+            (visit_df["COGSTATE"] == 1) & ~visit_df["PATNO"].isin(mci["PATNO"].unique())
+        ],
         n=64,
     )
 
