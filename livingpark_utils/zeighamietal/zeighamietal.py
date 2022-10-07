@@ -3,8 +3,8 @@ import pandas as pd
 from ppmi_downloader import PPMIDownloader
 from .. import livingpark_utils
 from .constants import (
-    COL_PAT_ID, 
-    COL_VISIT_TYPE, 
+    COL_PAT_ID,
+    COL_VISIT_TYPE,
     COL_DATE_INFO,
     COLS_DATE,
     COL_STATUS,
@@ -20,6 +20,7 @@ from .constants import (
     FIELD_STRENGTHS,
     STATUS_GROUPS,
 )
+
 
 def load_ppmi_csv(
     utils: livingpark_utils.LivingParkUtils,
@@ -159,6 +160,7 @@ def filter_date(
         df = df.loc[df[col_date] <= max_date]
     return df
 
+
 def mean_impute(df: pd.DataFrame, cols: str | list) -> pd.DataFrame:
     """Imputes missing values with the mean.
 
@@ -179,16 +181,17 @@ def mean_impute(df: pd.DataFrame, cols: str | list) -> pd.DataFrame:
         cols = [cols]
 
     for col in cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col] = pd.to_numeric(df[col], errors="coerce")
         df.loc[df[col].isna(), col] = df[col].mean()
 
     return df
 
+
 def get_t1_cohort(
-    utils: livingpark_utils.LivingParkUtils, 
+    utils: livingpark_utils.LivingParkUtils,
     filename: str,
     cohort_name: str = MAIN_COHORT,
-    sagittal_only = True,
+    sagittal_only=True,
 ) -> pd.DataFrame:
     """_summary_
 
@@ -219,8 +222,8 @@ def get_t1_cohort(
     valid_cohort_names = [MAIN_COHORT, VALIDATION_COHORT]
     if cohort_name not in valid_cohort_names:
         raise ValueError(
-            f'Invalid cohort_name: {cohort_name}. '
-            f'Valid values are: {valid_cohort_names}'
+            f"Invalid cohort_name: {cohort_name}. "
+            f"Valid values are: {valid_cohort_names}"
         )
 
     min_date = MIN_DATES[cohort_name]
@@ -244,11 +247,9 @@ def get_t1_cohort(
 
     # drop subjects with NA for ID (conversion to numerical value failed)
     df_t1_subset = df_t1
-    df_t1_subset = df_t1_subset.dropna(axis='index', subset=[COL_PAT_ID])
+    df_t1_subset = df_t1_subset.dropna(axis="index", subset=[COL_PAT_ID])
     # filter by date
-    df_t1_subset = filter_date(
-        df_t1_subset, max_date=max_date, min_date=min_date
-    )
+    df_t1_subset = filter_date(df_t1_subset, max_date=max_date, min_date=min_date)
     # filter by field strength
     df_t1_subset = df_t1_subset.loc[
         df_t1[COL_IMAGING_PROTOCOL].str.contains(f"Field Strength={field_strength}")
@@ -286,8 +287,7 @@ def get_t1_cohort(
         # ['MPRAGE GRAPPA_ND', 'MPRAGE GRAPPA'] -> unsure which to keep
         df_t1_subset = df_t1_subset.loc[
             (~df_t1_subset[COL_PAT_ID].isin(duplicate_subjects))
-            |
-            (
+            | (
                 (~df_t1_subset["Description"].str.contains("AX"))
                 & (~df_t1_subset["Description"].str.contains("_ND"))
             )
