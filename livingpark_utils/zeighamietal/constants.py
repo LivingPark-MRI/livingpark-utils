@@ -1,3 +1,4 @@
+"""Constant variables for Zeighami et al. notebooks."""
 # PPMI file names
 FILENAME_DEMOGRAPHICS = "Demographics.csv"
 FILENAME_AGE = "Age_at_visit.csv"

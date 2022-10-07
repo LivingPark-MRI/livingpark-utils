@@ -1,25 +1,26 @@
+"""Helper functions for Zeighami et al. notebooks."""
 from pathlib import Path
+
 import pandas as pd
 from ppmi_downloader import PPMIDownloader
+
 from .. import livingpark_utils
-from .constants import (
-    COL_PAT_ID,
-    COL_VISIT_TYPE,
-    COL_DATE_INFO,
-    COLS_DATE,
-    COL_STATUS,
-    COL_IMAGING_PROTOCOL,
-    IDA_COLNAME_MAP,
-    IDA_VISIT_MAP,
-    FILENAME_PARTICIPANT_STATUS,
-    VISIT_BASELINE,
-    MAIN_COHORT,
-    VALIDATION_COHORT,
-    MIN_DATES,
-    MAX_DATES,
-    FIELD_STRENGTHS,
-    STATUS_GROUPS,
-)
+from .constants import COL_DATE_INFO
+from .constants import COL_IMAGING_PROTOCOL
+from .constants import COL_PAT_ID
+from .constants import COL_STATUS
+from .constants import COL_VISIT_TYPE
+from .constants import COLS_DATE
+from .constants import FIELD_STRENGTHS
+from .constants import FILENAME_PARTICIPANT_STATUS
+from .constants import IDA_COLNAME_MAP
+from .constants import IDA_VISIT_MAP
+from .constants import MAIN_COHORT
+from .constants import MAX_DATES
+from .constants import MIN_DATES
+from .constants import STATUS_GROUPS
+from .constants import VALIDATION_COHORT
+from .constants import VISIT_BASELINE
 
 
 def load_ppmi_csv(
@@ -28,10 +29,10 @@ def load_ppmi_csv(
     from_ida_search: bool = False,
     convert_dates: bool = True,
     alternative_dir: str = ".",
-    cols_to_impute: str | list = None,
+    cols_to_impute: str | list | None = None,
     **kwargs,
 ) -> pd.DataFrame:
-    """Loads PPMI csv file as a pandas dataframe.
+    """Load PPMI csv file as a pandas dataframe.
 
     Parameters
     ----------
@@ -40,7 +41,8 @@ def load_ppmi_csv(
     filename : str
         name of file to be loaded
     from_ida_search : bool, optional
-        if True, column names and values will be converted from IDA format to match the other PPMI study files, by default False
+        if True, column names and values will be converted from IDA format
+        to match the other PPMI study files, by default False
     convert_dates : bool, optional
         if True, date columns will be converted to pd.datetime format, by default True
     alternative_dir : str, optional
@@ -62,7 +64,6 @@ def load_ppmi_csv(
     RuntimeError
         IDA format conversion issue
     """
-
     filepath = Path(utils.study_files_dir, filename)
 
     if not filepath.exists():
@@ -95,7 +96,7 @@ def load_ppmi_csv(
 
 
 def convert_date_cols(df: pd.DataFrame, cols: list = None) -> pd.DataFrame:
-    """Converts date columns from str to pandas datetime type.
+    """Convert date columns from str to pandas datetime type.
 
     Parameters
     ----------
@@ -126,7 +127,7 @@ def filter_date(
     dayfirst=True,
     col_date: str = COL_DATE_INFO,
 ) -> pd.DataFrame:
-    """Filters a dataframe based on values in a date columns.
+    """Filter a dataframe based on values in a date columns.
 
     Parameters
     ----------
@@ -139,14 +140,14 @@ def filter_date(
     dayfirst : bool, optional
         passed to pd.datetime(), by default True
     col_date : str, optional
-        _description_, by default value stored in COL_DATE_INFO
+        reference column for filtering,
+        by default value stored in COL_DATE_INFO
 
     Returns
     -------
     pd.DataFrame
-        _description_
+        filtered dataframe
     """
-
     if type(min_date) == str:
         min_date = pd.to_datetime(min_date, dayfirst=dayfirst)
     if type(max_date) == str:
@@ -162,7 +163,7 @@ def filter_date(
 
 
 def mean_impute(df: pd.DataFrame, cols: str | list) -> pd.DataFrame:
-    """Imputes missing values with the mean.
+    """Impute missing values with the mean.
 
     Parameters
     ----------
@@ -176,7 +177,6 @@ def mean_impute(df: pd.DataFrame, cols: str | list) -> pd.DataFrame:
     pd.DataFrame
         dataframe with imputed missing values
     """
-
     if type(cols) == str:
         cols = [cols]
 
@@ -193,16 +193,18 @@ def get_t1_cohort(
     cohort_name: str = MAIN_COHORT,
     sagittal_only=True,
 ) -> pd.DataFrame:
-    """_summary_
+    """Extract base main or validation cohort for Zeighami et al. papers.
 
     Parameters
     ----------
     utils : livingpark_utils.LivingParkUtils
         the notebook's LivingParkUtils instance
     filename : str
-        name of 3D T1 search result file. This file will be downloaded if it doesn't exist
+        name of 3D T1 search result file.
+        This file will be downloaded if it doesn't exist
     cohort_name : str, optional
-        must match MAIN_COHORT or VALIDATION_COHORT, by default value stored in MAIN_COHORT
+        must match MAIN_COHORT or VALIDATION_COHORT,
+        by default value stored in MAIN_COHORT
     sagittal_only : bool, optional
         whether to only use sagittal scans, by default True
 
@@ -218,7 +220,6 @@ def get_t1_cohort(
     RuntimeError
         duplicate subjects in output dataframe
     """
-
     valid_cohort_names = [MAIN_COHORT, VALIDATION_COHORT]
     if cohort_name not in valid_cohort_names:
         raise ValueError(
@@ -248,16 +249,19 @@ def get_t1_cohort(
     # drop subjects with NA for ID (conversion to numerical value failed)
     df_t1_subset = df_t1
     df_t1_subset = df_t1_subset.dropna(axis="index", subset=[COL_PAT_ID])
+
     # filter by date
     df_t1_subset = filter_date(df_t1_subset, max_date=max_date, min_date=min_date)
+
     # filter by field strength
     df_t1_subset = df_t1_subset.loc[
         df_t1[COL_IMAGING_PROTOCOL].str.contains(f"Field Strength={field_strength}")
     ]
+
     # filter plane
     if sagittal_only:
         df_t1_subset = df_t1_subset.loc[
-            df_t1[COL_IMAGING_PROTOCOL].str.contains(f"Acquisition Plane=SAGITTAL")
+            df_t1[COL_IMAGING_PROTOCOL].str.contains("Acquisition Plane=SAGITTAL")
         ]
 
     # only keep PD patients and healthy controls
@@ -275,6 +279,7 @@ def get_t1_cohort(
     duplicate_subjects = subject_counts.loc[subject_counts != 1].index
     print(f"Removing extra scans for {len(duplicate_subjects)} subjects")
     # print(df_t1_subset.loc[df_t1_subset[COL_PAT_ID].isin(duplicate_subjects)])
+
     if cohort_name == VALIDATION_COHORT:
         df_t1_subset = df_t1_subset.loc[
             ~df_t1_subset[COL_PAT_ID].isin(duplicate_subjects)
@@ -282,8 +287,9 @@ def get_t1_cohort(
         ]
     else:
         # description of repeat scans
-        # ['AX 3D FSPGR straight brain lab', 'sag 3D FSPGR BRAVO straight'] -> keep sagittal
-        # ['T1W_3D_FFE COR', 'T1W_3D_FFE AX'] -> unsure which to keep
+        # ['AX 3D FSPGR straight brain lab',
+        #  'sag 3D FSPGR BRAVO straight']       -> keep sagittal
+        # ['T1W_3D_FFE COR', 'T1W_3D_FFE AX']   -> unsure which to keep
         # ['MPRAGE GRAPPA_ND', 'MPRAGE GRAPPA'] -> unsure which to keep
         df_t1_subset = df_t1_subset.loc[
             (~df_t1_subset[COL_PAT_ID].isin(duplicate_subjects))
