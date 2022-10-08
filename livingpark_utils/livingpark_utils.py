@@ -215,7 +215,7 @@ class LivingParkUtils:
 
         Returns
         -------
-        str | None:
+        str:
             File name matching the `subject_id`, `event_id`, and if possible
             `protocol_description`. Empty string if no matching file is found.
         """
@@ -468,9 +468,9 @@ class LivingParkUtils:
         cohort: pd.DataFrame
             A Pandas DataFrame with a column named 'PATNO'.
 
-        Return
-        ------
-        string
+        Returns
+        -------
+        cohort_id: string
             A string containing the unique id of the cohort.
         """
         return str(hash(tuple(sorted(cohort["PATNO"])))).replace("-", "_")
@@ -505,8 +505,8 @@ class LivingParkUtils:
             An SPM batch file calling this job file will also be written with a
             '_batch.m' ending.
 
-        Return
-        ------
+        Returns
+        -------
         None
         """
 
@@ -582,9 +582,9 @@ class LivingParkUtils:
             Force execution even if log file already exists for this execution.
             Default: False.
 
-        Return
-        ------
-        boutiques.ExecutorOutput
+        Returns
+        -------
+        execution_output: boutiques.ExecutorOutput
             Boutiques execution output object containing exit code and various logs.
         """
         log_dir = os.path.join("outputs", "logs")
@@ -664,9 +664,10 @@ class LivingParkUtils:
         image_prefix: str
             Prefix to use in addition to 'c' in the image name. Examples: 'r', 'smw'.
 
-        Return
-        ------
-        str: path of a tissue class file. Empty string if no tissue class file is found.
+        Returns
+        -------
+        tissue_class_file: str
+            path of a tissue class file. Empty string if no tissue class file is found.
         """
         if tissue_class not in (1, 2, 3, 4, 5, 6):
             raise Exception(f"Unrecognized tissue class: {tissue_class}")
@@ -854,10 +855,10 @@ class LivingParkUtils:
         ----------
         cohort: pd.DataFrame
             A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description.
-        Return
-        ------
-        boutiques.ExecutorOutput: Boutiques execution output of SPM batch. None if
-        no segmentation was missing.
+        Returns
+        -------
+        execution_output: boutiques.ExecutorOutput:
+            Boutiques execution output of SPM batch. None if no segmentation was missing.
         """
         # Segmentation batch template
         segmentation_job_template = os.path.join(
@@ -915,9 +916,10 @@ class LivingParkUtils:
         ----------
          cohort: pd.DataFrame
             A LivingPark cohort. Must have columns PATNO and EVENT_ID
-        Return
-        ------
-        boutiques.ExecutorOutput: Boutiques execution output of SPM batch.
+        Returns
+        -------
+        execution_output: boutiques.ExecutorOutput
+            Boutiques execution output of SPM batch.
         """
         # DARTEL and normalization batch
         dartel_norm_job_template = os.path.join(
@@ -1002,9 +1004,10 @@ class LivingParkUtils:
         ----------
          cohort: pd.DataFrame
             A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description
-        Return
-        ------
-        dict: Dictionary where keys are segmentation files and values are intra-cranial
+        Returns
+        -------
+        volumes: dict
+            Dictionary where keys are segmentation files and values are intra-cranial
         volumes.
         """
         # Tissue volumes batch
