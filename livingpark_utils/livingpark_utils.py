@@ -21,6 +21,7 @@ from dateutil.parser import parse  # type: ignore
 from dateutil.relativedelta import relativedelta  # type: ignore
 from IPython.display import HTML
 from IPython.display import Image as ImageDisplay
+from matplotlib import axes
 from matplotlib import pyplot as plt
 from PIL import Image
 
@@ -81,12 +82,20 @@ class LivingParkUtils:
         warnings.filterwarnings("ignore")
 
         print("Installing notebook dependencies (see log in install.log)... ")
-        f = open("install.log", "wb")
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
-            stdout=f,
-            stderr=f,
-        )
+        with open("install.log", "wb") as fout:
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "-U",
+                    "-r",
+                    "requirements.txt",
+                ],
+                stdout=fout,
+                stderr=fout,
+            )
 
         now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
         print(f"This notebook was run on {now}")
@@ -348,6 +357,32 @@ class LivingParkUtils:
         except Exception as e:
             print(e)
             return moca_score
+
+    def reformat_plot_labels(self, dist: pd.Series, ax: axes.Axes, freq: int) -> None:
+        """Reformat tick locations and labels of the x-axis on a plot.
+
+        Parameters
+        ----------
+        dist: pd.Series
+            Series representing the number of elements
+            for each distinct values of a column
+        ax: axes.Axes
+            Matplotlib's Axes class to access figure
+            elements and set the coordinate system
+        freq: int
+            interval between labels
+
+        Returns
+        -------
+        None
+        """
+        ax.set_xticklabels([x.removesuffix(".0") for x in dist.index.astype(str)])
+        for label in ax.xaxis.get_ticklabels():
+            try:
+                if int(label.get_text()) % freq != 0:
+                    label.set_visible(False)
+            except Exception:
+                pass
 
     def download_missing_nifti_files(
         self, cohort: pd.DataFrame, link_in_outputs=False
