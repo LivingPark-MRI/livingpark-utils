@@ -1,4 +1,5 @@
 """Provide utility function for the LivingPark notebook for paper replication."""
+import csv
 import datetime
 import glob
 import math
@@ -9,6 +10,7 @@ import sys
 import warnings
 from pprint import pprint
 
+import boutiques
 import nilearn.plotting as nplt
 import numpy as np
 import pandas as pd
@@ -196,7 +198,7 @@ class LivingParkUtils:
         event_id: str,
         protocol_description: str,
         base_dir: str = "inputs",
-    ) -> str | None:
+    ) -> str:
         """Return cached nifti files, if any.
 
         Search for nifti file matching `subject_id`, `event_id` and
@@ -213,13 +215,18 @@ class LivingParkUtils:
         protocol_description: str
             Protocol description. Example: "MPRAGE GRAPPA"
         base_dir: str, default "inputs"
-            TODO Describe this. Not sure what it is exactly.
+            The base directory where to look for in the cache.
+            Example: 'outputs/pre_processing'. This is useful when the nifti files
+            are present in more than a single location. For instance, when using SPM
+            pipelines, it is usually reasonable to link the nifti files from the inputs
+            directory to the outputs directory, as SPM write its outputs next to the
+            inputs by default.
 
         Returns
         -------
-        str or None
+        str:
             File name matching the `subject_id`, `event_id`, and if possible
-            `protocol_description`. None if no matching file is found.
+            `protocol_description`. Empty string if no matching file is found.
         """
         expression = os.path.join(
             self.data_cache_path,
@@ -255,7 +262,7 @@ class LivingParkUtils:
         #     f"{(subject_id, event_id, protocol_description)} "
         #     "with lenient expression, returning None"
         # )
-        return None
+        return ""
 
     def disease_duration(self) -> pd.DataFrame:
         """Return a DataFrame containing disease durations.
@@ -413,15 +420,13 @@ class LivingParkUtils:
             ),
             axis=1,
         )
-        print(
-            f"Number of available subjects: {len(cohort[cohort['File name'].notna()])}"
-        )
-        print(f"Number of missing subjects: {len(cohort[cohort['File name'].isna()])}")
+        print(f"Number of available subjects: {len(cohort[cohort['File name'] != ''])}")
+        print(f"Number of missing subjects: {len(cohort[cohort['File name'] == ''])}")
 
         # Download missing file names
         try:
             ppmi_dl = ppmi_downloader.PPMIDownloader()
-            missing_subject_ids = cohort[cohort["File name"].isna()]["PATNO"]
+            missing_subject_ids = cohort[cohort["File name"] == ""]["PATNO"]
             print(f"Downloading image data of {len(missing_subject_ids)} subjects")
             ppmi_dl.download_imaging_data(
                 missing_subject_ids,
@@ -437,7 +442,7 @@ class LivingParkUtils:
         results_path = "outputs"
         ppmi_fd = ppmi_downloader.PPMINiftiFileFinder()
         for _, row in cohort.iterrows():
-            if row["File name"] is None:
+            if not row["File name"] or row["File name"] is None:
                 filename = ppmi_fd.find_nifti(
                     row["PATNO"], row["EVENT_ID"], row["Description"]
                 )
@@ -478,7 +483,6 @@ class LivingParkUtils:
                     os.path.basename(file_name.replace(self.data_cache_path, "")),
                 )
                 if not os.path.exists(dest_file):
-                    # print(dest_dir, file_name, dest_file)
                     os.makedirs(dest_dir, exist_ok=True)
                     os.symlink(
                         os.path.relpath(os.path.abspath(file_name), start=dest_file),
@@ -499,9 +503,9 @@ class LivingParkUtils:
         cohort: pd.DataFrame
             A Pandas DataFrame with a column named 'PATNO'.
 
-        Return
-        ------
-        string
+        Returns
+        -------
+        cohort_id: string
             A string containing the unique id of the cohort.
         """
         return str(hash(tuple(sorted(cohort["PATNO"])))).replace("-", "_")
@@ -536,8 +540,8 @@ class LivingParkUtils:
             An SPM batch file calling this job file will also be written with a
             '_batch.m' ending.
 
-        Return
-        ------
+        Returns
+        -------
         None
         """
 
@@ -586,7 +590,7 @@ class LivingParkUtils:
         executable_job_file_name: str,
         boutiques_descriptor: str = "zenodo.6881412",
         force: bool = False,
-    ) -> None:
+    ) -> boutiques.ExecutorOutput:
         """Run an SPM batch file using Boutiques.
 
         Requires Docker or Singularity container engines (Singularity untested yet in
@@ -613,9 +617,9 @@ class LivingParkUtils:
             Force execution even if log file already exists for this execution.
             Default: False.
 
-        Return
-        ------
-        boutiques.ExecutionOutput
+        Returns
+        -------
+        execution_output: boutiques.ExecutorOutput
             Boutiques execution output object containing exit code and various logs.
         """
         log_dir = os.path.join("outputs", "logs")
@@ -662,14 +666,15 @@ class LivingParkUtils:
 
         return output
 
-    def smwc_scan(
+    def find_tissue_image_in_cache(
         self,
         tissue_class: int,
         patno: int,
         visit: str,
+        image_prefix: str = "",
         pre_processing_dir: str = "pre_processing",
     ) -> str:
-        """Find the SPM tissue class file of patient at visit with given protocol.
+        """Find SPM tissue class image of patient at visit with given protocol.
 
         Scans the outputs directory for an SPM tissue class file obtained from nifti
         file of patient at visit using protocol description. To find a tissue file,
@@ -691,26 +696,41 @@ class LivingParkUtils:
         pre_processing_dir: str
             Directory in 'outputs' where pre-processing results are stored.
 
-        Return
-        ------
-        str: path of a tissue class file
+        image_prefix: str
+            Prefix to use in addition to 'c' in the image name. Examples: 'r', 'smw'.
+
+        Returns
+        -------
+        tissue_class_file: str
+            path of a tissue class file. Empty string if no tissue class file is found.
         """
-        if tissue_class not in (1, 2):
+        if tissue_class not in (1, 2, 3, 4, 5, 6):
             raise Exception(f"Unrecognized tissue class: {tissue_class}")
         dirname = os.path.join("outputs", pre_processing_dir)
-        expression = (
-            f"{dirname}/sub-{patno}/ses-{visit}/anat/smwc{tissue_class}PPMI*.nii"
+        expression = os.path.join(
+            f"{dirname}",
+            f"sub-{patno}",
+            f"ses-{visit}",
+            "anat",
+            f"{image_prefix}c{tissue_class}PPMI*.nii",
         )
         files = glob.glob(expression)
         assert (
-            len(files) == 1
-        ), f"Zero or more than 1 files were matched by expression: {expression}"
-        return os.path.abspath(files[0])
+            len(files) <= 1
+        ), f"More than 1 files were matched by expression: {expression}"
+        if len(files) == 0:
+            print(f"No file matched by expression: {expression}")
+            return ""
+        else:
+            return os.path.abspath(files[0])
 
     def export_spm_segmentations(
         self,
         cohort: pd.DataFrame,
         folder: str,
+        mni_space: bool = True,
+        show_wm: bool = True,
+        show_gm: bool = True,
         cut_coords: tuple = (-28, -7, 17),
         force: bool = False,
         extension: str = "png",
@@ -763,17 +783,34 @@ class LivingParkUtils:
                 os.path.join(self.data_cache_path, "inputs"),
                 os.path.join("outputs", "pre_processing"),
             )
-            output_file_c1 = output_file_name.replace("PPMI", "smwc1PPMI")
-            output_file_c2 = output_file_name.replace("PPMI", "smwc2PPMI")
+            output_file_c1 = (
+                output_file_name.replace("PPMI", "smwc1PPMI")
+                if mni_space
+                else output_file_name.replace("PPMI", "c1PPMI", 1)
+            )
+            output_file_c2 = (
+                output_file_name.replace("PPMI", "smwc2PPMI")
+                if mni_space
+                else output_file_name.replace("PPMI", "c1PPMI", 1)
+            )
 
             fig = plt.figure()
             display = nplt.plot_anat(
-                cut_coords=list(cut_coords), figure=fig, title=f"#{i}/{len(cohort)}"
+                anat_img=input_file if mni_space else None,
+                cut_coords=list(cut_coords) if cut_coords else None,
+                figure=fig,
+                title=f"#{i}/{len(cohort)}",
             )
-            display.add_overlay(output_file_c1, cmap="Reds", threshold=0.1, alpha=alpha)
-            display.add_overlay(
-                output_file_c2, cmap="Blues", threshold=0.1, alpha=alpha
-            )
+
+            if show_gm:
+                display.add_overlay(
+                    output_file_c1, cmap="Reds", threshold=0.1, alpha=alpha
+                )
+
+            if show_wm:
+                display.add_overlay(
+                    output_file_c2, cmap="Blues", threshold=0.1, alpha=alpha
+                )
 
             os.makedirs(folder, exist_ok=True)
             plt.savefig(
@@ -809,7 +846,14 @@ class LivingParkUtils:
         )
         print(f"Wrote {os.path.join(frame_folder, output_name)}")
 
-    def qc_spm_segmentations(self, cohort) -> None:
+    def qc_spm_segmentations(
+        self,
+        cohort,
+        mni_space=True,
+        show_gm=True,
+        show_wm=True,
+        cut_coords=(-28, -7, 17),
+    ) -> None:
         """Display a gif file with SPM segmentation results from the cohort.
 
         Parameters
@@ -819,6 +863,334 @@ class LivingParkUtils:
         """
         qc_dir = f"qc_{self.cohort_id(cohort)}"
 
-        self.export_spm_segmentations(cohort, qc_dir)
-        self.make_gif(qc_dir)
-        return ImageDisplay(url=os.path.join(qc_dir, "animation.gif"))
+        self.export_spm_segmentations(
+            cohort,
+            qc_dir,
+            mni_space=mni_space,
+            show_gm=show_gm,
+            show_wm=show_wm,
+            cut_coords=cut_coords,
+        )
+        animation_file = "animation.gif"
+        self.make_gif(qc_dir, output_name=animation_file)
+        gif_content = open(os.path.join(qc_dir, animation_file), "rb").read()
+        image = ImageDisplay(data=gif_content, format="png")
+        return image
+
+    def spm_compute_missing_segmentations(
+        self, cohort: pd.DataFrame
+    ) -> boutiques.ExecutorOutput | None:
+        """Run SPM segmentation batch for missing segmentations in cohort.
+
+        For each (patient, event_id) pair in cohort, use self.find_tissue_image_in_cache
+        to find segmentation result (tissue probability map). If segmentation result
+        is not found, use SPM segmentation batch to create it.
+
+        Parameters
+        ----------
+        cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description.
+
+        Returns
+        -------
+        execution_output: boutiques.ExecutorOutput:
+            Boutiques execution output of SPM batch. None if no
+        segmentation was missing.
+        """
+        # Segmentation batch template
+        segmentation_job_template = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "segmentation_job.m",
+        )
+        segmentation_job_name = os.path.abspath(
+            os.path.join(
+                "code", "batches", f"segmentation_{self.cohort_id(cohort)}_job.m"
+            )
+        )
+
+        image_files = sorted(
+            os.path.abspath(
+                self.find_nifti_file_in_cache(
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                    row["Description"],
+                    base_dir=os.path.join("outputs", "pre_processing"),
+                )
+            )
+            for index, row in cohort.iterrows()
+            if (  # segmentation doesn't exist
+                self.find_tissue_image_in_cache(1, row["PATNO"], row["EVENT_ID"]) == ""
+                and self.find_tissue_image_in_cache(2, row["PATNO"], row["EVENT_ID"])
+                == ""
+            )
+        )
+
+        print(f"Missing segmentations: {len(image_files)}")
+        if len(image_files) == 0:
+            return None
+
+        image_files_quote = [f"'{x},1'" for x in image_files]
+        self.write_spm_batch_files(
+            segmentation_job_template,
+            {"[IMAGES]": os.linesep.join(image_files_quote)},
+            segmentation_job_name,
+        )
+
+        # Force execution since we know there are missing files
+        output = self.run_spm_batch_file(segmentation_job_name, force=True)
+        return output
+
+    def spm_compute_dartel_normalization(
+        self, cohort: pd.DataFrame
+    ) -> boutiques.ExecutorOutput:
+        """Run DARTEL and normalization segmentation batch for subjects in cohort.
+
+        All the subjects in the cohort must already be segmented.
+        Run spm_compute_missing_segmentations to compute segmentations.
+
+        Parameters
+        ----------
+         cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO and EVENT_ID
+
+        Returns
+        -------
+        execution_output: boutiques.ExecutorOutput
+            Boutiques execution output of SPM batch.
+        """
+        # DARTEL and normalization batch
+        dartel_norm_job_template = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "dartel_normalization_job.m",
+        )
+        dartel_norm_job_name = os.path.abspath(
+            os.path.join(
+                "code", "batches", f"dartel_norm_{self.cohort_id(cohort)}_job.m"
+            )
+        )
+
+        c1_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    1,
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        c2_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    2,
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        rc1_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    1, row["PATNO"], row["EVENT_ID"], image_prefix="r"
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        rc2_image_files = sorted(
+            os.path.abspath(
+                self.find_tissue_image_in_cache(
+                    2, row["PATNO"], row["EVENT_ID"], image_prefix="r"
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        rc1_files_quote = [f"'{x},1'" for x in rc1_image_files]
+        rc2_files_quote = [f"'{x},1'" for x in rc2_image_files]
+        c1_files_quote = [f"'{x}'" for x in c1_image_files]
+        c2_files_quote = [f"'{x}'" for x in c2_image_files]
+        self.write_spm_batch_files(
+            dartel_norm_job_template,
+            {
+                "[RC1_IMAGES]": os.linesep.join(rc1_files_quote),
+                "[RC2_IMAGES]": os.linesep.join(rc2_files_quote),
+                "[C1_IMAGES]": os.linesep.join(c1_files_quote),
+                "[C2_IMAGES]": os.linesep.join(c2_files_quote),
+                "[NORM_FWHM]": "4 4 4",
+            },
+            dartel_norm_job_name,
+        )
+
+        output = self.run_spm_batch_file(dartel_norm_job_name)
+        return output
+
+    def spm_compute_intra_cranial_volumes(self, cohort: pd.DataFrame) -> dict:
+        """Compute intra-cranial volume for all subjects in cohort.
+
+        All the subjects in the cohort must already be segmented and normalized to
+        MNI space.
+        Run spm_compute_missing_segmentations to compute segmentations and
+        spm_compute_dartel_normalization to normalize them.
+
+        Parameters
+        ----------
+         cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description
+
+        Returns
+        -------
+        volumes: dict
+            Dictionary where keys are segmentation files and values are intra-cranial
+        volumes.
+        """
+        # Tissue volumes batch
+        tissue_volumes_job_template = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "tissue_volumes_job.m",
+        )
+        volumes_job_name = os.path.abspath(
+            os.path.join(
+                "code", "batches", f"tissue_volumes_{self.cohort_id(cohort)}_job.m"
+            )
+        )
+
+        image_files = sorted(
+            os.path.abspath(
+                self.find_nifti_file_in_cache(
+                    row["PATNO"],
+                    row["EVENT_ID"],
+                    row["Description"],
+                    base_dir=os.path.join("outputs", "pre_processing"),
+                )
+            )
+            for index, row in cohort.iterrows()
+        )
+
+        segmentation_files = sorted(
+            x.replace(".nii", "_seg8.mat").replace(",1", "") for x in image_files
+        )
+        volumes_file = os.path.abspath(
+            os.path.join(
+                "outputs", os.path.basename(volumes_job_name.replace(".m", ".txt"))
+            )
+        )  # output file containing brain volumes
+        self.write_spm_batch_files(
+            tissue_volumes_job_template,
+            {
+                "[SEGMENTATION_FILES]": os.linesep.join(
+                    [f"'{x}'" for x in segmentation_files]
+                ),
+                "[VOLUMES_FILE]": volumes_file,
+            },
+            volumes_job_name,
+        )
+        self.run_spm_batch_file(volumes_job_name)
+
+        icvs = {}  # intra-cranial volumes per segmentation file
+
+        def subject_id(segmentation_filename):
+            """Return subject id from segmentation file name."""
+            sub_id = segmentation_filename.split(os.path.sep)[-4].replace("sub-", "")
+            assert int(sub_id)
+            return sub_id
+
+        with open(volumes_file) as csvfile:
+            reader = csv.DictReader(csvfile, quotechar="'")
+            for row in reader:
+                assert len(row) == 4, f"Malformed row: {row}"
+                icvs[subject_id(row["File"])] = (
+                    float(row["Volume1"])
+                    + float(row["Volume2"])
+                    + float(row["Volume3"])
+                )
+
+        return icvs
+
+    def spm_compute_vbm_stats(
+        self,
+        cohort: pd.DataFrame,
+        tissue_class: int,
+        group1_patnos: list,
+        group2_patnos: list,
+        icvs: dict,
+    ) -> dict:
+        """
+        Compute VBM stats for cohort.
+
+        Cohort must already be segmented into GM and WM using
+        self.spm_compute_missing_segmentations and normalized to common space using
+        self.spm_compute_dartel_normalization. Inter-cranial volumes must be
+        pre-computed using self.spm_compute_intra_cranial_volumes.
+
+        Parameters
+        ----------
+         cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO and EVENT_ID
+         tissue_class: int
+            "gm" for grey matter, "wm" for white matter
+         group1/2_patnos: list of PPMI patient numbers in group1/2. Important: a patno
+            must appear in exactly one group and must appear excatly once in this group.
+        icys: dict
+            inter-cranial volumes by patno, as returned by
+            self.spm_compute_intra_cranial_volumes
+        """
+        # Stats batch (grey matter)
+        stats_job_template = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "stats_job.m",
+        )
+
+        cohort_id = self.cohort_id(cohort)
+
+        stats_job_name = os.path.abspath(
+            os.path.join("code", "batches", f"stats_{tissue_class}_{cohort_id}_job.m")
+        )
+
+        design_dir = os.path.join("outputs", f"results-{tissue_class}-{cohort_id}")
+        os.makedirs(design_dir, exist_ok=True)
+
+        # Don't mess up with ordering, it's critical
+        tissue_numbers = {"gm": 1, "wm": 2}
+
+        def find_tissue_image(patno):
+            tissue = tissue_numbers[tissue_class]
+            visit = cohort[cohort["PATNO"] == patno]["EVENT_ID"].values[0]
+            return self.find_tissue_image_in_cache(tissue, patno, visit, "smw")
+
+        group1_smwc = [
+            f"'{find_tissue_image(patno)},1'" for patno in sorted(group1_patnos)
+        ]
+        group2_smwc = [
+            f"'{find_tissue_image(patno)},1'" for patno in sorted(group2_patnos)
+        ]
+
+        groups_patnos = [x for x in sorted(group1_patnos) + sorted(group2_patnos)]
+
+        replace_keys = {
+            "[DESIGN_DIR]": os.path.abspath(design_dir),
+            "[GROUP1_SMWC_SCANS]": os.linesep.join(group1_smwc),
+            "[GROUP2_SMWC_SCANS]": os.linesep.join(group2_smwc),
+            "[ICVS]": os.linesep.join(
+                [str(icvs[str(x)]) for x in groups_patnos]
+            ),  # don't mess up ordering
+            "[AGES]": os.linesep.join(
+                [
+                    str(cohort[cohort["PATNO"] == x]["Age"].values[0])
+                    for x in groups_patnos
+                ]
+            ),
+        }
+
+        # Stats batch
+
+        self.write_spm_batch_files(stats_job_template, replace_keys, stats_job_name)
+        output = self.run_spm_batch_file(stats_job_name)
+        return output
