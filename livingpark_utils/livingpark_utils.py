@@ -859,7 +859,8 @@ class LivingParkUtils:
         Returns
         -------
         execution_output: boutiques.ExecutorOutput:
-            Boutiques execution output of SPM batch. None if no segmentation was missing.
+            Boutiques execution output of SPM batch. None if no
+        segmentation was missing.
         """
         # Segmentation batch template
         segmentation_job_template = os.path.join(
