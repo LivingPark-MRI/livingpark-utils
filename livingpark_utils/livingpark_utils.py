@@ -855,6 +855,7 @@ class LivingParkUtils:
         ----------
         cohort: pd.DataFrame
             A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description.
+
         Returns
         -------
         execution_output: boutiques.ExecutorOutput:
@@ -916,6 +917,7 @@ class LivingParkUtils:
         ----------
          cohort: pd.DataFrame
             A LivingPark cohort. Must have columns PATNO and EVENT_ID
+
         Returns
         -------
         execution_output: boutiques.ExecutorOutput
@@ -1004,6 +1006,7 @@ class LivingParkUtils:
         ----------
          cohort: pd.DataFrame
             A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description
+
         Returns
         -------
         volumes: dict
