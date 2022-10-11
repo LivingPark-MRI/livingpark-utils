@@ -26,6 +26,46 @@ from matplotlib import pyplot as plt
 from PIL import Image
 
 
+def _ensure_column_exists(df: pd.DataFrame, column: str | list[str]) -> None:
+    """Ensure that the `column`(s) exist in the dataframe.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe to verify.
+    column : str | list[str]
+        Column(s) to verify.
+
+    Raises
+    ------
+    KeyError
+        Column is missing in the dataframe.
+    """
+    if isinstance(column, str):
+        column = [column]
+
+    for c in column:
+        if c not in df.columns:
+            raise KeyError(f'"{c}" column missing in dataframe.')
+
+
+def get_hc(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter the dataframe to only have Healthy Control.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe to filter
+
+    Returns
+    -------
+    pd.DataFrame
+        Healthy Control dataframe.
+    """
+    _ensure_column_exists(df, column=["COHORT", "PRIMDIAG"])
+    return df[(df["COHORT"] == 2) & (df["PRIMDIAG"] == 17)]
+
+
 class LivingParkUtils:
     """Contain functions to be reused across LivingPark notebooks."""
 
