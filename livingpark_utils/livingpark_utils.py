@@ -49,7 +49,7 @@ def _ensure_column_exists(df: pd.DataFrame, column: str | list[str]) -> None:
             raise KeyError(f'"{c}" column missing in dataframe.')
 
 
-def get_hc(df: pd.DataFrame) -> pd.DataFrame:
+def filter_hc(df: pd.DataFrame) -> pd.DataFrame:
     """Filter the dataframe to only have Healthy Control.
 
     Parameters
