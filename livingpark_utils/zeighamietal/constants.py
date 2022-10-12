@@ -61,7 +61,7 @@ STATUS_HC = "Healthy Control"
 # codes for EVENT_ID field
 VISIT_BASELINE = "BL"
 VISIT_SCREENING = "SC"
-REGEX_VISIT_FOLLOWUP = "^V((0[1-9])|(1[0-9])|(20))$"  # V01-V20
+REGEX_VISIT_FOLLOWUP = "^V((0[4-9])|(1[0-9])|(20))$"  # V04-V20
 
 # codes for SEX field
 SEX_FEMALE = 0
