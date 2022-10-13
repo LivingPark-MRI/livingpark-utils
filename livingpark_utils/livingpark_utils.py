@@ -52,6 +52,9 @@ def _ensure_column_exists(df: pd.DataFrame, column: str | list[str]) -> None:
 def filter_hc(df: pd.DataFrame) -> pd.DataFrame:
     """Filter the dataframe to only have Healthy Control.
 
+    The filtering is perform on the "COHORT" and "PRIMDIAG" columns.
+    Therefore, these columns must exists.
+
     Parameters
     ----------
     df : pd.DataFrame
