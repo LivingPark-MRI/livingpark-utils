@@ -12,6 +12,7 @@ install_requires = [
     "matplotlib",
     "numpy",
     "pandas",
+    "pytz",
 ]
 
 setup(
