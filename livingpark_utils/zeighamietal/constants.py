@@ -1,6 +1,7 @@
 """Constant variables for Zeighami et al. notebooks."""
 # PPMI file names
 FILENAME_DEMOGRAPHICS = "Demographics.csv"
+FILENAME_PD_HISTORY = "PD_Diagnosis_History.csv"
 FILENAME_AGE = "Age_at_visit.csv"
 FILENAME_PARTICIPANT_STATUS = "Participant_Status.csv"
 FILENAME_MOCA = "Montreal_Cognitive_Assessment__MoCA_.csv"
@@ -19,10 +20,14 @@ COL_STATUS = "COHORT_DEFINITION"
 COL_VISIT_TYPE = "EVENT_ID"
 COL_MRI_COMPLETE = "MRICMPLT"
 COL_DATE_INFO = "INFODT"
+COL_DATE_BIRTH = "BIRTHDT"
+COL_DATE_PD = "PDDXDT"
 COLS_DATE = [
     COL_DATE_INFO,
     "LAST_UPDATE",
     "ORIG_ENTRY",
+    COL_DATE_BIRTH,
+    COL_DATE_PD,
 ]
 COL_PD_STATE = "PDSTATE"
 COL_AGE = "AGE_AT_VISIT"
