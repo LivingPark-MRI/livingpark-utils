@@ -81,22 +81,6 @@ class LivingParkUtils:
         """
         warnings.filterwarnings("ignore")
 
-        print("Installing notebook dependencies (see log in install.log)... ")
-        with open("install.log", "wb") as fout:
-            subprocess.check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "-U",
-                    "-r",
-                    "requirements.txt",
-                ],
-                stdout=fout,
-                stderr=fout,
-            )
-
         now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
         print(f"This notebook was run on {now}")
 
