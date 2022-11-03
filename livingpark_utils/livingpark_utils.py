@@ -5,8 +5,6 @@ import glob
 import math
 import os.path
 import pkgutil
-import subprocess
-import sys
 import warnings
 from pprint import pprint
 
