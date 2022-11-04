@@ -16,7 +16,7 @@ install_requires = [
 
 setup(
     name="livingpark_utils",
-    version="0.5.1",
+    version="0.6",
     description="Utility functions to write LivingPark notebooks.",
     author="Tristan Glatard",
     author_email="tristan.glatard@concordia.ca",
