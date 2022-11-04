@@ -1,5 +1,6 @@
 recursive-include livingpark_utils *.py
 include livingpark_utils/toggle_button.html
+recursive-include livingpark_utils/templates *.m
 
 include setup.py
 include README.md
