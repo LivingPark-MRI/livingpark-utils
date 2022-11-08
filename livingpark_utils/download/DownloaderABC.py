@@ -33,15 +33,15 @@ class DownloaderABC(ABC):
         os.makedirs(os.path.join(os.getcwd(), self.cache_dir), mode=755, exist_ok=True)
 
     @abstractmethod
-    def get_metadata(
+    def get_study_data(
         self, query: list[str], *, timeout: int = 600
     ) -> tuple[list[str], list[str]]:
-        """Download the metadata of a dataset.
+        """Download the study data of a dataset.
 
         Parameters
         ----------
         query : list[str]
-            Metadata file(s) to download.
+            Study data files to download.
         timeout : int, optional
             Number of second before the download times out., by default 600
 
@@ -57,20 +57,20 @@ class DownloaderABC(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def missing_metadata(self, query: list[str], *, force: bool = False) -> list[str]:
-        """Determine the metadata missing locally.
+    def missing_study_data(self, query: list[str], *, force: bool = False) -> list[str]:
+        """Determine the study data missing locally.
 
         Parameters
         ----------
         query : list[str]
-            Metadata file(s) to verify.
+            Study data files to verify.
         force : bool, optional
-            When `True`, all metadata are reported missing locally., by default False
+            When `True`, all study data are reported missing locally., by default False
 
         Returns
         -------
         list[str]
-            Missing metadata file(s) locally.
+            Missing study data files locally.
 
         Raises
         ------
@@ -79,10 +79,10 @@ class DownloaderABC(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_raw_data(
+    def get_T1_nifti_files(
         self, query: pd.DataFrame, *, symlink: bool = False, timeout: int = 120
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Download the raw data of a dataset.
+        """Download the T1 NIfTI files of a dataset.
 
         Parameters
         ----------
@@ -97,58 +97,7 @@ class DownloaderABC(ABC):
         Returns
         -------
         tuple[pd.DataFrame, pd.DataFrame]
-            Tuple with the successful and missing raw data identifiers, respectlively.
-
-        Raises
-        ------
-        NotImplementedError
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def missing_raw_data(
-        self, query: pd.DataFrame, *, force: bool = False
-    ) -> pd.DataFrame:
-        """Determine the missing raw data locally.
-
-        Parameters
-        ----------
-        query : pd.DataFrame
-            Cohort to verify.
-        force : bool, optional
-            When `True`, all metadata are reported missing locally., by default False
-
-        Returns
-        -------
-        pd.DataFrame
-            Missing raw data locally.
-
-        Raises
-        ------
-        NotImplementedError
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_derivative(
-        self, query: pd.DataFrame, *, symlink: bool = False, timeout: int = 120
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Download the derivative of a dataset.
-
-        Parameters
-        ----------
-        query : pd.DataFrame
-            Derivative(s) to download.
-        symlink : bool, optional
-            When `True`, symlinks are created from the caching directory., by default
-            False
-        timeout : int, optional
-            Number of second before the download times out., by default 120
-
-        Returns
-        -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Tuple with the successful and missing data derivative identifiers,
+            Tuple with the successful and missing T1 NIfTI file identifiers,
             respectlively.
 
         Raises
@@ -158,20 +107,22 @@ class DownloaderABC(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def missing_derivative(self, query: pd.DataFrame, *, force: bool) -> pd.DataFrame:
-        """Determine the missing data derivatives of a dataset.
+    def missing_T1_nifti_files(
+        self, query: pd.DataFrame, *, force: bool = False
+    ) -> pd.DataFrame:
+        """Determine the missing T1 NIfTI files locally.
 
         Parameters
         ----------
         query : pd.DataFrame
-            Data derivative(s) to verify.
+            Cohort to verify.
         force : bool, optional
-            When `True`, all metadata are reported missing locally., by default False
+            When `True`, all study data are reported missing locally., by default False
 
         Returns
         -------
         pd.DataFrame
-            Missing data derivative(s) locally.
+            Missing T1 NIfTI files locally.
 
         Raises
         ------

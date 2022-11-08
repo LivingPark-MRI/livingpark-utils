@@ -33,7 +33,7 @@ def cohort_id(cohort: pd.DataFrame) -> str:
     return str(hash(tuple(sorted(cohort["PATNO"])))).replace("-", "_")
 
 
-def disease_duration(metadata_dir: str, *, force: bool = False) -> pd.DataFrame:
+def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFrame:
     """Return a DataFrame containing disease durations.
 
     Returns
@@ -42,22 +42,22 @@ def disease_duration(metadata_dir: str, *, force: bool = False) -> pd.DataFrame:
         DataFrame containing disease durations for each (patient,event) pair found
         in "MDS_UPDRS_Part_III.csv".
     """
-    ppmi_downloader = ppmi.Downloader(metadata_dir)
+    ppmi_downloader = ppmi.Downloader(study_data_dir)
     required_files = ["MDS_UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"]
 
-    missing = ppmi_downloader.missing_metadata(required_files, force=force)
+    missing = ppmi_downloader.missing_study_data(required_files, force=force)
     if len(missing) == 0:
         print("Download skipped: No missing files!")
     else:
         pprint(f"Downloading files: {missing}")
-        _, missing = ppmi_downloader.get_metadata(missing)
+        _, missing = ppmi_downloader.get_study_data(missing)
 
-    pddxdt = pd.read_csv(os.path.join(metadata_dir, "PD_Diagnosis_History.csv"))[
+    pddxdt = pd.read_csv(os.path.join(study_data_dir, "PD_Diagnosis_History.csv"))[
         ["PATNO", "EVENT_ID", "PDDXDT"]
     ]
     pddxdt = pddxdt[(pddxdt["EVENT_ID"] == "SC") & pddxdt["PDDXDT"].notna()]
     pdxdur = pd.read_csv(
-        os.path.join(metadata_dir, "MDS_UPDRS_Part_III.csv"),
+        os.path.join(study_data_dir, "MDS_UPDRS_Part_III.csv"),
         low_memory=False,
     )[["PATNO", "EVENT_ID", "INFODT"]]
 

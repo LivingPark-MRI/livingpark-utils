@@ -87,14 +87,14 @@ class LivingParkUtils:
             )
         )
 
-    def get_metadata(
+    def get_study_data(
         self,
         query: list[str],
         default: DownloaderABC,
         force: bool = False,
         timeout: int = 600,
     ) -> None:
-        """Download the required metadata files, using a given downloader.
+        """Download the required study data files, using a given downloader.
 
         Parameters
         ----------
@@ -108,19 +108,19 @@ class LivingParkUtils:
         timeout : int, optional
             Number of second before the download times out., by default 600
         """
-        missing = default.missing_metadata(query, force=force)
+        missing = default.missing_study_data(query, force=force)
         if len(missing) == 0:
             print("Download skipped: No missing files!")
         else:
             pprint(f"Downloading files: {missing}")
-            _, missing = default.get_metadata(missing, timeout=timeout)
+            _, missing = default.get_study_data(missing, timeout=timeout)
 
             if len(missing) > 0:
                 pprint(f"Missing files: {missing}")
             else:
                 print("Download completed")
 
-    def get_raw_data(
+    def get_T1_nifti_files(
         self,
         query: pd.DataFrame,
         default: DownloaderABC,
@@ -130,7 +130,7 @@ class LivingParkUtils:
         timeout: int = 120,
         fallback: DownloaderABC = None,
     ) -> None:
-        """Download the required raw data, using a given downloader.
+        """Download the required T1 NIfTI files, using a given downloader.
 
         Parameters
         ----------
@@ -150,63 +150,17 @@ class LivingParkUtils:
             When some subject fail to download, use this alternative downloader., by
             default None
         """
-        missing = default.missing_raw_data(query, force=force)
+        missing = default.missing_T1_nifti_files(query, force=force)
         if len(missing) == 0:
             return print("Download skipped: No missing files!")
         else:
             pprint(f"Downloading files: {missing}")
-            _, missing = default.get_raw_data(missing, symlink=symlink, timeout=timeout)
-
-            if len(missing) > 0 and fallback:
-                _, missing = fallback.get_raw_data(
-                    missing, symlink=symlink, timeout=timeout
-                )
-                if len(missing) > 0:
-                    return pprint(f"Missing files: {missing}")
-
-        print("Download completed")
-
-    def get_derivative(
-        self,
-        query: pd.DataFrame,
-        default: DownloaderABC,
-        *,
-        symlink: bool = False,
-        force: bool = False,
-        timeout: int = 120,
-        fallback: DownloaderABC = None,
-    ) -> None:
-        """Download the required data derivatives, using a given downloader.
-
-        Parameters
-        ----------
-        query : pd.DataFrame
-            Cohort to download.
-        default : DownloaderABC
-            Download handler.
-        symlink : bool, optional
-            When `True`, symlinks are created from the caching directory., by default
-            False
-        force : bool, optional
-            When `True`, the files are always downloaded. Otherwise, only the missing
-            files are downloaded., by default False
-        timeout : int, optional
-            Number of second before the download times out., by default 120
-        fallback : DownloaderABC, optional
-            When some subject fail to download, use this alternative downloader., by
-            default None
-        """
-        missing = default.missing_derivative(query, force=force)
-        if len(missing) == 0:
-            return print("Download skipped: No missing files!")
-        else:
-            pprint(f"Downloading files: {missing}")
-            _, missing = default.get_derivative(
+            _, missing = default.get_T1_nifti_files(
                 missing, symlink=symlink, timeout=timeout
             )
 
             if len(missing) > 0 and fallback:
-                _, missing = fallback.get_derivative(
+                _, missing = fallback.get_T1_nifti_files(
                     missing, symlink=symlink, timeout=timeout
                 )
                 if len(missing) > 0:
@@ -905,7 +859,7 @@ class LivingParkUtils:
 
     # Methods to deprecate
     @deprecated(
-        extra="Moved to function `livinpark_utils::LivingParkUtils::get_metadata`."
+        extra="Moved to function `livinpark_utils::LivingParkUtils::get_study_data`."
     )
     def download_ppmi_metadata(
         self,
@@ -934,7 +888,7 @@ class LivingParkUtils:
         from livingpark_utils.download import ppmi
 
         ppmi_downloader = ppmi.Downloader(self.study_files_dir, headless=headless)
-        return self.get_metadata(
+        return self.get_study_data(
             query=required_files, default=ppmi_downloader, force=force
         )
 
@@ -1010,7 +964,7 @@ class LivingParkUtils:
         """
         from livingpark_utils.dataset.ppmi import disease_duration
 
-        return disease_duration(metadata_dir=self.study_files_dir, force=False)
+        return disease_duration(study_data_dir=self.study_files_dir, force=False)
 
     @deprecated(extra="Moved to module `livingpark_utils.parkinson`.")
     def moca2mmse(self, moca_score: int) -> int:
@@ -1058,7 +1012,9 @@ class LivingParkUtils:
         return reformat_plot_labels(dist=dist, ax=ax, freq=freq)
 
     @deprecated(
-        extra="Moved to function `livinpark_utils::LivingParkUtils::get_raw_data`."
+        extra=(
+            "Moved to function `livinpark_utils::LivingParkUtils::get_T1_nifti_files`."
+        )
     )
     def download_missing_nifti_files(
         self, cohort: pd.DataFrame, link_in_outputs=False
@@ -1091,7 +1047,7 @@ class LivingParkUtils:
         from livingpark_utils.download import ppmi
 
         ppmi_downloader = ppmi.Downloader(self.study_files_dir, headless=True)
-        return self.get_raw_data(
+        return self.get_T1_nifti_files(
             query=cohort, default=ppmi_downloader, symlink=link_in_outputs
         )
 

@@ -1,4 +1,4 @@
-"""Computation of various Parkinson's Disease metrics."""
+"""Computation of various clinical metrics for Parkinson's Disease."""
 import math
 
 import numpy as np

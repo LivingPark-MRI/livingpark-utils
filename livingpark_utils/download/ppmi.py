@@ -34,7 +34,7 @@ class Downloader(DownloaderABC):
         super().__init__(out_dir, cache_dir)
         self.headless = headless
 
-    def get_metadata(
+    def get_study_data(
         self,
         query: list[str],
         *,
@@ -63,26 +63,26 @@ class Downloader(DownloaderABC):
                 timeout=timeout,
             )
         except Exception:
-            missing = self.missing_metadata(query)
+            missing = self.missing_study_data(query)
             success = list(set(query) - set(missing))
             return success, missing
 
         return query, []
 
-    def missing_metadata(self, query, *, force: bool = False) -> list[str]:
-        """Determine the metadata missing locally.
+    def missing_study_data(self, query, *, force: bool = False) -> list[str]:
+        """Determine the study data missing locally.
 
         Parameters
         ----------
         query : list[str]
-            Metadata file(s) to verify.
+            Study data files to verify.
         force : bool, optional
-            When `True`, all metadata are reported missing locally., by default False
+            When `True`, all study data are reported missing locally., by default False
 
         Returns
         -------
         list[str]
-            Missing metadata file(s) locally.
+            Missing study data files locally.
         """
         if force:
             return query
@@ -93,14 +93,14 @@ class Downloader(DownloaderABC):
                 if not os.path.exists(os.path.join(self.out_dir, filepath))
             ]
 
-    def get_raw_data(
+    def get_T1_nifti_files(
         self,
         query: pd.DataFrame,
         *,
         symlink: bool = False,
         timeout: int = 120,  # Per subject
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Download the raw data of a dataset.
+        """Download the T1 NIfTI files of a dataset.
 
         Parameters
         ----------
@@ -115,7 +115,8 @@ class Downloader(DownloaderABC):
         Returns
         -------
         tuple[pd.DataFrame, pd.DataFrame]
-            Tuple with the successful and missing raw data identifiers, respectlively.
+            Tuple with the successful and missing T1 NIfTI file identifiers,
+            respectlively.
         """
         cohort = query
         missing_patno = cohort["PATNO"]
@@ -129,7 +130,7 @@ class Downloader(DownloaderABC):
                 headless=self.headless,
             )
         except Exception:
-            missing = self.missing_raw_data(query)
+            missing = self.missing_T1_nifti_files(query)
             success = query[~query["PATNO"].isin(missing["PATNO"])]
             return success, missing
 
@@ -186,22 +187,22 @@ class Downloader(DownloaderABC):
 
         return query, pd.DataFrame()
 
-    def missing_raw_data(
+    def missing_T1_nifti_files(
         self, query: pd.DataFrame, *, force: bool = False
     ) -> pd.DataFrame:
-        """Determine the missing raw data locally.
+        """Determine the missing T1 NIfTI files locally.
 
         Parameters
         ----------
         query : pd.DataFrame
             Cohort to verify.
         force : bool, optional
-            When `True`, all metadata are reported missing locally., by default False
+            When `True`, all study data are reported missing locally., by default False
 
         Returns
         -------
         pd.DataFrame
-            Missing raw data locally.
+            Missing T1 NIfTI files locally.
         """
         if force:
             return query
@@ -214,57 +215,3 @@ class Downloader(DownloaderABC):
                 axis=1,
             )
             return cohort[cohort["File name"] == ""]
-
-    def get_derivative(
-        self,
-        query: pd.DataFrame,
-        *,
-        symlink: bool = False,
-        timeout: int = 120,  # Per subject
-    ) -> tuple[list[str], list[str]]:
-        """Download the derivative of a dataset.
-
-        Parameters
-        ----------
-        query : pd.DataFrame
-            Derivative(s) to download.
-        symlink : bool, optional
-            When `True`, symlinks are created from the caching directory., by default
-            False
-        timeout : int, optional
-            Number of second before the download times out., by default 120
-
-        Returns
-        -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Tuple with the successful and missing data derivative identifiers,
-            respectlively.
-
-        Raises
-        ------
-        NotImplementedError
-        """
-        raise NotImplementedError
-
-    def missing_derivative(
-        self, query: pd.DataFrame, *, force: bool = False
-    ) -> list[str]:
-        """Determine the missing data derivatives of a dataset.
-
-        Parameters
-        ----------
-        query : pd.DataFrame
-            Data derivative(s) to verify.
-        force : bool, optional
-            When `True`, all metadata are reported missing locally., by default False
-
-        Returns
-        -------
-        pd.DataFrame
-            Missing data derivative(s) locally.
-
-        Raises
-        ------
-        NotImplementedError
-        """
-        raise NotImplementedError
