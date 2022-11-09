@@ -64,7 +64,7 @@ import pandas as pd
 import ppmi_downloader
 
 
-data_dir = "data"
+data_dir = op.join('inputs', 'study_files')
 
 if not op.exists(data_dir):
     os.makedirs(data_dir)
