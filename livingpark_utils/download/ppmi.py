@@ -34,13 +34,13 @@ class Downloader(DownloaderABC):
         super().__init__(out_dir, cache_dir)
         self.headless = headless
 
-    def get_study_data(
+    def get_study_files(
         self,
         query: list[str],
         *,
         timeout: int = 600,
     ) -> tuple[list[str], list[str]]:
-        """Download PPMI required study files, if not available.
+        """Download required PPMI study files, if not available.
 
         Parameters
         ----------
@@ -63,26 +63,26 @@ class Downloader(DownloaderABC):
                 timeout=timeout,
             )
         except Exception:
-            missing = self.missing_study_data(query)
+            missing = self.missing_study_files(query)
             success = list(set(query) - set(missing))
             return success, missing
 
         return query, []
 
-    def missing_study_data(self, query, *, force: bool = False) -> list[str]:
-        """Determine the study data missing locally.
+    def missing_study_files(self, query, *, force: bool = False) -> list[str]:
+        """Determine the study files missing locally.
 
         Parameters
         ----------
         query : list[str]
-            Study data files to verify.
+            Study files to verify.
         force : bool, optional
-            When `True`, all study data are reported missing locally., by default False
+            When `True`, all study files are reported missing locally., by default False
 
         Returns
         -------
         list[str]
-            Missing study data files locally.
+            Missing study files locally.
         """
         if force:
             return query

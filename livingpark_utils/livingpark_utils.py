@@ -87,33 +87,33 @@ class LivingParkUtils:
             )
         )
 
-    def get_study_data(
+    def get_study_files(
         self,
         query: list[str],
         default: DownloaderABC,
         force: bool = False,
         timeout: int = 600,
     ) -> None:
-        """Download the required study data files, using a given downloader.
+        """Download the required study files, using a given downloader.
 
         Parameters
         ----------
         query : list[str]
-            Required files.
+            Required study files.
         default : DownloaderABC
             Download handler.
         force : bool, optional, default
-            When `True`, the files are always downloaded. Otherwise, only the missing
-            files are downloaded., by default False
+            When `True`, the study files are always downloaded. Otherwise, only the
+            missing study files are downloaded., by default False
         timeout : int, optional
             Number of second before the download times out., by default 600
         """
-        missing = default.missing_study_data(query, force=force)
+        missing = default.missing_study_files(query, force=force)
         if len(missing) == 0:
             print("Download skipped: No missing files!")
         else:
             pprint(f"Downloading files: {missing}")
-            _, missing = default.get_study_data(missing, timeout=timeout)
+            _, missing = default.get_study_files(missing, timeout=timeout)
 
             if len(missing) > 0:
                 pprint(f"Missing files: {missing}")
@@ -859,7 +859,7 @@ class LivingParkUtils:
 
     # Methods to deprecate
     @deprecated(
-        extra="Moved to function `livinpark_utils::LivingParkUtils::get_study_data`."
+        extra="Moved to function `livinpark_utils::LivingParkUtils::get_study_files`."
     )
     def download_ppmi_metadata(
         self,
@@ -888,8 +888,8 @@ class LivingParkUtils:
         from livingpark_utils.download import ppmi
 
         ppmi_downloader = ppmi.Downloader(self.study_files_dir, headless=headless)
-        return self.get_study_data(
-            query=required_files, default=ppmi_downloader, force=force
+        return self.get_study_files(
+            query=required_files, default=ppmi_downloader, force=force, timeout=timeout
         )
 
     @deprecated(extra="Moved to module `livingpark_utils.dataset.ppmi`.")
@@ -966,7 +966,7 @@ class LivingParkUtils:
 
         return disease_duration(study_data_dir=self.study_files_dir, force=False)
 
-    @deprecated(extra="Moved to module `livingpark_utils.parkinson`.")
+    @deprecated(extra="Moved to module `livingpark_utils.clinical`.")
     def moca2mmse(self, moca_score: int) -> int:
         """Return a MMSE score given a MoCA score.
 
@@ -982,7 +982,7 @@ class LivingParkUtils:
             Conversion made using Table 2 in
             https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4371590
         """
-        from livingpark_utils.parkinson import moca2mmse
+        from livingpark_utils.clinical import moca2mmse
 
         return moca2mmse(moca_score=moca_score)
 

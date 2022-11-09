@@ -11,7 +11,7 @@ from livingpark_utils.clinical import moca2mmse
 
 utils = livingpark_utils.LivingParkUtils()
 utils.notebook_init()
-utils.get_study_data(["Demographics.csv"])
+utils.get_study_files(["Demographics.csv"])
 utils.get_T1_nifti_files(cohort)  # `cohort` is of type: pd.DataFrame
 
 ppmi.find_nifti_file_in_cache(x["PATNO"], x["EVENT_ID"], x["Description"])

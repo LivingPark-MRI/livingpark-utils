@@ -45,12 +45,12 @@ def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFram
     ppmi_downloader = ppmi.Downloader(study_data_dir)
     required_files = ["MDS_UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"]
 
-    missing = ppmi_downloader.missing_study_data(required_files, force=force)
+    missing = ppmi_downloader.missing_study_files(required_files, force=force)
     if len(missing) == 0:
         print("Download skipped: No missing files!")
     else:
         pprint(f"Downloading files: {missing}")
-        _, missing = ppmi_downloader.get_study_data(missing)
+        _, missing = ppmi_downloader.get_study_files(missing)
 
     pddxdt = pd.read_csv(os.path.join(study_data_dir, "PD_Diagnosis_History.csv"))[
         ["PATNO", "EVENT_ID", "PDDXDT"]

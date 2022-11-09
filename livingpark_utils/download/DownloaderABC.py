@@ -33,22 +33,22 @@ class DownloaderABC(ABC):
         os.makedirs(os.path.join(os.getcwd(), self.cache_dir), mode=755, exist_ok=True)
 
     @abstractmethod
-    def get_study_data(
+    def get_study_files(
         self, query: list[str], *, timeout: int = 600
     ) -> tuple[list[str], list[str]]:
-        """Download the study data of a dataset.
+        """Download the study files of a dataset.
 
         Parameters
         ----------
         query : list[str]
-            Study data files to download.
+            Study files to download.
         timeout : int, optional
             Number of second before the download times out., by default 600
 
         Returns
         -------
         tuple[list[str], list[str]]
-            Tuple with the successful and missing files, respectlively.
+            Tuple with the successful and missing study files, respectlively.
 
         Raises
         ------
@@ -57,20 +57,22 @@ class DownloaderABC(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def missing_study_data(self, query: list[str], *, force: bool = False) -> list[str]:
-        """Determine the study data missing locally.
+    def missing_study_files(
+        self, query: list[str], *, force: bool = False
+    ) -> list[str]:
+        """Determine the study files missing locally.
 
         Parameters
         ----------
         query : list[str]
-            Study data files to verify.
+            Study files to verify.
         force : bool, optional
-            When `True`, all study data are reported missing locally., by default False
+            When `True`, all study files are reported missing locally., by default False
 
         Returns
         -------
         list[str]
-            Missing study data files locally.
+            Missing study files locally.
 
         Raises
         ------
