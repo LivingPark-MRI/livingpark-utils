@@ -5,8 +5,6 @@ import glob
 import math
 import os.path
 import pkgutil
-import subprocess
-import sys
 import warnings
 from pprint import pprint
 
@@ -80,22 +78,6 @@ class LivingParkUtils:
             An HTML button to hide/show code cells in the notebooks.
         """
         warnings.filterwarnings("ignore")
-
-        print("Installing notebook dependencies (see log in install.log)... ")
-        with open("install.log", "wb") as fout:
-            subprocess.check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "-U",
-                    "-r",
-                    "requirements.txt",
-                ],
-                stdout=fout,
-                stderr=fout,
-            )
 
         now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
         print(f"This notebook was run on {now}")
@@ -748,6 +730,16 @@ class LivingParkUtils:
         folder: str
             Folder where to export the segmentation images.
 
+        mni_space: bool
+            Set to True if segmentations are in MNI space. If set to False, use subject
+            T1 as background, otherwise use MNI template.
+
+        show_wm: bool
+            Set to True to show white matter segmentations.
+
+        show_gm: bool
+            Set to True to show grey matter segmentations.
+
         cut_coords: tuple
             Passed to Nilearn viewer. The MNI coordinates of the cutting plane.
 
@@ -795,12 +787,19 @@ class LivingParkUtils:
             )
 
             fig = plt.figure()
-            display = nplt.plot_anat(
-                anat_img=input_file if mni_space else None,
-                cut_coords=list(cut_coords) if cut_coords else None,
-                figure=fig,
-                title=f"#{i}/{len(cohort)}",
-            )
+            if not mni_space:
+                display = nplt.plot_anat(
+                    anat_img=input_file,
+                    cut_coords=list(cut_coords) if cut_coords else None,
+                    figure=fig,
+                    title=f"#{i}/{len(cohort)}",
+                )
+            else:
+                display = nplt.plot_anat(
+                    cut_coords=list(cut_coords) if cut_coords else None,
+                    figure=fig,
+                    title=f"#{i}/{len(cohort)}",
+                )
 
             if show_gm:
                 display.add_overlay(
