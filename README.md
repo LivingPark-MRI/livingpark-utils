@@ -46,7 +46,7 @@ See also [LivingPark contributing guidelines](https://github.com/LivingPark-MRI/
 
 Make sure to:
 * Use Python type annotations
-* Include Python docstrings for all functions
+* Include Python docstrings using [numpydoc](https://numpydoc.readthedocs.io/en/latest/format.html) format for all functions
 * Format docstrings
 * Run `psf/black` on the files you modify
 * Run `pre-commit run --all` before committing, this will be checked in your PR
