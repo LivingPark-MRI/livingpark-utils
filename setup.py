@@ -26,4 +26,6 @@ setup(
     python_requires=">=3.10",
     install_requires=install_requires,
     include_package_data=True,
+    long_description_content_type="text/markdown",
+    long_description=README,
 )
