@@ -1,6 +1,7 @@
 # noqa: D100
 from setuptools import setup
-
+import codecs
+import os
 
 install_requires = [
     "datalad",
@@ -15,6 +16,10 @@ install_requires = [
     "pytz",
 ]
 
+here = os.path.abspath(os.path.dirname(__file__))
+with codecs.open(os.path.join(here, "README.md"), encoding="utf-8") as fh:
+    long_description = "\\n" + fh.read()
+
 setup(
     name="livingpark_utils",
     version="0.7",
@@ -27,5 +32,5 @@ setup(
     install_requires=install_requires,
     include_package_data=True,
     long_description_content_type="text/markdown",
-    long_description="README.md",
+    long_description=long_description,
 )
