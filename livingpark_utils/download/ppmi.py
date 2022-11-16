@@ -66,6 +66,8 @@ class Downloader(DownloaderABC):
             missing = self.missing_study_files(query)
             success = list(set(query) - set(missing))
             return success, missing
+        finally:
+            getattr(downloader, "quit", lambda: None)()
 
         return query, []
 
@@ -116,7 +118,7 @@ class Downloader(DownloaderABC):
         -------
         tuple[pd.DataFrame, pd.DataFrame]
             Tuple with the successful and missing T1 NIfTI file identifiers,
-            respectlively.
+            respectively.
         """
         cohort = query
         missing_patno = cohort["PATNO"]
@@ -133,6 +135,8 @@ class Downloader(DownloaderABC):
             missing = self.missing_T1_nifti_files(query)
             success = query[~query["PATNO"].isin(missing["PATNO"])]
             return success, missing
+        finally:
+            getattr(ppmi_dl, "quit", lambda: None)()
 
         # Find cohort file names among downloaded files
         results_path = "outputs"
