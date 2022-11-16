@@ -55,6 +55,7 @@ if len(missing_files) > 0:
     file_name = ppmi.download_3D_T1_info(destination_dir=data_dir, headless=False)
     assert(op.exists(op.join(data_dir, file_name)))
     os.rename(op.join(data_dir, file_name), op.join(data_dir, mri_file_name))
+    ppmi.quit()
 
 print('File downloaded')
 

@@ -76,6 +76,7 @@ if len(missing_files) > 0:
     ppmi.download_metadata(
         missing_files, destination_dir=data_dir, headless=False, timeout=600
     )
+    ppmi.quit()
 
 df = pd.read_csv(op.join(data_dir, "MDS_UPDRS_Part_III.csv"))
 
