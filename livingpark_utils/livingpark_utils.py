@@ -154,7 +154,6 @@ class LivingParkUtils:
         if len(missing) == 0:
             return print("Download skipped: No missing files!")
         else:
-            pprint(f"Downloading files: {missing}")
             _, missing = default.get_T1_nifti_files(
                 missing, symlink=symlink, timeout=timeout
             )
@@ -164,7 +163,12 @@ class LivingParkUtils:
                     missing, symlink=symlink, timeout=timeout
                 )
                 if len(missing) > 0:
-                    return pprint(f"Missing files: {missing}")
+                    with open("install_nifti.log") as fout:
+                        fout.write(missing)
+                    return pprint(
+                        "Some files could not be downloaded."
+                        "\nSee `install_nifti.log` file for more information."
+                    )
 
         print("Download completed")
 
