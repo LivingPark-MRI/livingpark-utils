@@ -1,7 +1,8 @@
 # noqa: D100
-from setuptools import setup
 import codecs
 import os
+
+from setuptools import setup
 
 install_requires = [
     "datalad",
