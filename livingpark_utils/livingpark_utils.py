@@ -2,7 +2,6 @@
 import csv
 import datetime
 import glob
-import math
 import os.path
 import pkgutil
 import warnings
@@ -10,18 +9,17 @@ from pprint import pprint
 
 import boutiques
 import nilearn.plotting as nplt
-import numpy as np
 import pandas as pd
-import ppmi_downloader
 import pytz  # type: ignore
 from boutiques.descriptor2func import function as descriptor2func
-from dateutil.parser import parse  # type: ignore
-from dateutil.relativedelta import relativedelta  # type: ignore
 from IPython.display import HTML
 from IPython.display import Image as ImageDisplay
-from matplotlib import axes
 from matplotlib import pyplot as plt
-from PIL import Image
+
+from .dataset import ppmi
+from .deprecation import deprecated
+from .download.DownloaderABC import DownloaderABC
+from .pipeline import qc
 
 
 class LivingParkUtils:
@@ -89,409 +87,100 @@ class LivingParkUtils:
             )
         )
 
-    def download_ppmi_metadata(
+    def get_study_files(
         self,
-        required_files: list,
+        query: list[str],
+        default: DownloaderABC,
         force: bool = False,
-        headless: bool = True,
         timeout: int = 600,
     ) -> None:
-        """Download PPMI required study files, if not available.
+        """Download the required study files, using a given downloader.
 
         Parameters
         ----------
-        required_files : list
-            Required PPMI study files (cvs files) supported by ppmi_downloader.
+        query : list[str]
+            Required study files.
+        default : DownloaderABC
+            Download handler.
+        force : bool, optional, default
+            When `True`, the study files are always downloaded. Otherwise, only the
+            missing study files are downloaded., by default False
+        timeout : int, optional
+            Number of second before the download times out., by default 600
+        """
+        missing = default.missing_study_files(query, force=force)
+        if len(missing) == 0:
+            print("Download skipped: No missing files!")
+        else:
+            pprint(f"Downloading files: {missing}")
+            _, missing = default.get_study_files(missing, timeout=timeout)
+
+            if len(missing) > 0:
+                pprint(f"Missing files: {missing}")
+            else:
+                print("Download completed")
+
+    def get_T1_nifti_files(
+        self,
+        query: pd.DataFrame,
+        default: DownloaderABC,
+        *,
+        symlink: bool = False,
+        force: bool = False,
+        timeout: int = 120,
+        fallback: DownloaderABC = None,
+    ) -> None:
+        """Download the required T1 NIfTI files, using a given downloader.
+
+        Parameters
+        ----------
+        query : pd.DataFrame
+            Cohort to download.
+        default : DownloaderABC
+            Download handler.
+        symlink : bool, optional
+            When `True`, symlinks are created from the caching directory., by default
+            False
         force : bool, optional
-        headless : bool, default True
-            If True, prevent broswer window to open during download.
-        timeout : int, default 600
-            Number of second before the download times out.
+            When `True`, the files are always downloaded. Otherwise, only the missing
+            files are downloaded., by default False
+        timeout : int, optional
+            Number of second before the download times out., by default 120
+        fallback : DownloaderABC, optional
+            When some subject fail to download, use this alternative downloader., by
+            default None
+        """
+        missing = default.missing_T1_nifti_files(query, force=force)
+        if len(missing) == 0:
+            return print("Download skipped: No missing files!")
+        else:
+            pprint(f"Downloading files: {missing}")
+            _, missing = default.get_T1_nifti_files(
+                missing, symlink=symlink, timeout=timeout
+            )
+
+            if len(missing) > 0 and fallback:
+                _, missing = fallback.get_T1_nifti_files(
+                    missing, symlink=symlink, timeout=timeout
+                )
+                if len(missing) > 0:
+                    return pprint(f"Missing files: {missing}")
+
+        print("Download completed")
+
+    def preprocess(
+        self,
+    ) -> None:
+        """Handle the preprocessing of a cohort.
 
         Raises
         ------
-        Exception:
-            If failure occurs during download.
-        """
-        if force:
-            missing_files = required_files
-        else:
-            missing_files = [
-                x
-                for x in required_files
-                if not os.path.exists(os.path.join(self.study_files_dir, x))
-            ]
-
-        if len(missing_files) > 0:
-            pprint(f"Downloading files: {missing_files}")
-            try:
-                ppmi = ppmi_downloader.PPMIDownloader()
-                ppmi.download_metadata(
-                    missing_files,
-                    destination_dir=self.study_files_dir,
-                    headless=headless,
-                    timeout=timeout,
-                )
-            except Exception as e:
-                print("Download failed!")
-                raise (e)
-
-            print("Download completed!")
-
-        else:
-            print("Download skipped: No missing files!")
-
-    # def __install_datalad_cache(self) -> None:
-    #     """Install the DataLad dataset.
-
-    #     Notes
-    #     -----
-    #     Requires a functional ssh connection to `self.ssh_username`@`self.host`.
-    #     Located at `self.host_dir`/`self.notebook_name`/`self.data_cache_path`.
-    #     """
-    #     if os.path.exists(self.data_cache_path):
-    #         # noqa: TODO check if path is a valid DataLad dataset without doing d.status because it's too long.
-    #         d = datalad.api.Dataset(self.data_cache_path)
-    #         d.update(how="merge")
-    #     else:
-    #         datalad.api.install(
-    #             source=(
-    #                 f"{self.ssh_username}@{self.ssh_host}:"
-    #                 f"{self.ssh_host_dir}/{self.notebook_name}"
-    #             ),
-    #             path=self.data_cache_path,
-    #         )
-
-    def clean_protocol_description(self, desc: str) -> str:
-        """Create valid protocol description for file names (as done by PPMI).
-
-        Parameters
-        ----------
-        str
-            Protocol description. Example: "MPRAGE GRAPPA"
-        """
-        return (
-            desc.replace(" ", "_").replace("(", "_").replace(")", "_").replace("/", "_")
-        )
-
-    def find_nifti_file_in_cache(
-        self,
-        subject_id: str,
-        event_id: str,
-        protocol_description: str,
-        base_dir: str = "inputs",
-    ) -> str:
-        """Return cached nifti files, if any.
-
-        Search for nifti file matching `subject_id`, `event_id` and
-        `protocol_description` in the cache directory.
-        If not found, search for nifti file matching `subject_id` and `event_id` only,
-        and return it if a single file is found.
-
-        Parameters
-        ----------
-        subject_id: str
-            Subject ID
-        event_id: str
-            Event ID. Example: BL
-        protocol_description: str
-            Protocol description. Example: "MPRAGE GRAPPA"
-        base_dir: str, default "inputs"
-            The base directory where to look for in the cache.
-            Example: 'outputs/pre_processing'. This is useful when the nifti files
-            are present in more than a single location. For instance, when using SPM
-            pipelines, it is usually reasonable to link the nifti files from the inputs
-            directory to the outputs directory, as SPM write its outputs next to the
-            inputs by default.
-
-        Returns
-        -------
-        str:
-            File name matching the `subject_id`, `event_id`, and if possible
-            `protocol_description`. Empty string if no matching file is found.
-        """
-        expression = os.path.join(
-            self.data_cache_path,
-            base_dir,
-            f"sub-{subject_id}",
-            f"ses-{event_id}",
-            "anat",
-            f"PPMI_*{self.clean_protocol_description(protocol_description)}*.nii",
-        )
-        files = glob.glob(expression)
-        assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
-        if len(files) == 1:
-            return files[0]
-        # print(
-        #     "Warning: no nifti file found for: "
-        #     f"{(subject_id, event_id, protocol_description)} with strict glob "
-        #     "expression. Trying with lenient glob expression."
-        # )
-        expression = os.path.join(
-            self.data_cache_path,
-            base_dir,
-            f"sub-{subject_id}",
-            f"ses-{event_id}",
-            "anat",
-            "PPMI_*.nii",
-        )
-        files = glob.glob(expression)
-        assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
-        if len(files) == 1:
-            return files[0]
-        # print(
-        #     f"Warning: no nifti file found for: "
-        #     f"{(subject_id, event_id, protocol_description)} "
-        #     "with lenient expression, returning None"
-        # )
-        return ""
-
-    def disease_duration(self) -> pd.DataFrame:
-        """Return a DataFrame containing disease durations.
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing disease durations for each (patient,event) pair found
-            in "MDS_UPDRS_Part_III.csv".
-        """
-        # Download required files
-        self.download_ppmi_metadata(
-            ["MDS_UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"]
-        )
-
-        pddxdt = pd.read_csv(
-            os.path.join(self.study_files_dir, "PD_Diagnosis_History.csv")
-        )[["PATNO", "EVENT_ID", "PDDXDT"]]
-        pddxdt = pddxdt[(pddxdt["EVENT_ID"] == "SC") & pddxdt["PDDXDT"].notna()]
-        pdxdur = pd.read_csv(
-            os.path.join(self.study_files_dir, "MDS_UPDRS_Part_III.csv"),
-            low_memory=False,
-        )[["PATNO", "EVENT_ID", "INFODT"]]
-
-        PDDXDT_map = dict(zip(pddxdt["PATNO"].values, pddxdt["PDDXDT"].values))
-        pdxdur["PDDXDT"] = pdxdur["PATNO"].map(PDDXDT_map)
-
-        pdxdur["PDXDUR"] = pdxdur.apply(
-            lambda row: relativedelta(parse(row["INFODT"]), parse(row["PDDXDT"])).months
-            if row["PDDXDT"] is not np.nan
-            else np.nan,
-            axis=1,
-        )
-        pdxdur.drop(labels=["INFODT", "PDDXDT"], inplace=True, axis=1)
-
-        return pdxdur
-
-    def moca2mmse(self, moca_score: int) -> int:
-        """Return a MMSE score given a MoCA score.
-
-        Parameters
-        ----------
-        moca_score: int
-            MoCA score
-
-        Returns
-        -------
-        int
-            MMSE score corresponding to the MoCA score
-            Conversion made using Table 2 in
-            https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4371590
+        NotImplementedError
 
         """
-        mapping = {
-            1: 6,
-            2: 9,
-            3: 11,
-            4: 12,
-            5: 13,
-            6: 14,
-            7: 15,
-            8: 15,
-            9: 16,
-            10: 17,
-            11: 18,
-            12: 18,
-            13: 19,
-            14: 20,
-            15: 21,
-            16: 22,
-            17: 22,
-            18: 23,
-            19: 24,
-            20: 25,
-            21: 26,
-            22: 26,
-            23: 27,
-            24: 28,
-            25: 28,
-            26: 29,
-            27: 29,
-            28: 30,
-            29: 30,
-            30: 30,
-        }
+        raise NotImplementedError
 
-        try:
-            if math.isnan(moca_score):
-                return np.nan
-            else:
-                return mapping[moca_score]
-        except Exception as e:
-            print(e)
-            return moca_score
-
-    def reformat_plot_labels(self, dist: pd.Series, ax: axes.Axes, freq: int) -> None:
-        """Reformat tick locations and labels of the x-axis on a plot.
-
-        Parameters
-        ----------
-        dist: pd.Series
-            Series representing the number of elements
-            for each distinct values of a column
-        ax: axes.Axes
-            Matplotlib's Axes class to access figure
-            elements and set the coordinate system
-        freq: int
-            interval between labels
-
-        Returns
-        -------
-        None
-        """
-        ax.set_xticklabels([x.removesuffix(".0") for x in dist.index.astype(str)])
-        for label in ax.xaxis.get_ticklabels():
-            try:
-                if int(label.get_text()) % freq != 0:
-                    label.set_visible(False)
-            except Exception:
-                pass
-
-    def download_missing_nifti_files(
-        self, cohort: pd.DataFrame, link_in_outputs=False
-    ) -> None:
-        """Download missing nifti files required by cohort.
-
-        For each subject in cohort, look for T1-weighted nifti image file in
-        notebook cache. Download all the missing files from PPMI, move them
-        to notebook cache (inputs directory), and add their names to cohort.
-
-        Parameters
-        ----------
-        cohort: pd.DataFrame
-            A Pandas DataFrame containing columns PATNO (PPMI patient id), EVENT_ID
-            (MRI visit, for instance 'V06'), and Description (for instance
-            'MPRAGE GRAPPA'). Can be built from the file produced by
-            'MRI metadata.ipynb'. A column 'File name' will be added to the DataFrame
-             if not already present. This column
-            will contain the paths of the T1-weighted nifti files associated with the
-             patient, MRI visit, and protocol description.
-
-        link_in_outputs: bool
-            If True, create symbolic links to input nifti files in
-            outputs/pre-processing. Useful for processing tools that
-            write next to input files, such as SPM.
-
-        Returns
-        -------
-        None
-        """
-        # Find nifti file names in cohort
-        cohort["File name"] = cohort.apply(
-            lambda x: self.find_nifti_file_in_cache(
-                x["PATNO"], x["EVENT_ID"], x["Description"]
-            ),
-            axis=1,
-        )
-        print(f"Number of available subjects: {len(cohort[cohort['File name'] != ''])}")
-        print(f"Number of missing subjects: {len(cohort[cohort['File name'] == ''])}")
-
-        # Download missing file names
-        try:
-            ppmi_dl = ppmi_downloader.PPMIDownloader()
-            missing_subject_ids = cohort[cohort["File name"] == ""]["PATNO"]
-            print(f"Downloading image data of {len(missing_subject_ids)} subjects")
-            ppmi_dl.download_imaging_data(
-                missing_subject_ids,
-                type="nifti",
-                timeout=120 * len(missing_subject_ids),
-                headless=False,
-            )
-        except Exception as e:
-            print("Download failed!")
-            raise (e)
-
-        # Find cohort file names among downloaded files
-        results_path = "outputs"
-        ppmi_fd = ppmi_downloader.PPMINiftiFileFinder()
-        for _, row in cohort.iterrows():
-            if not row["File name"] or row["File name"] is None:
-                filename = ppmi_fd.find_nifti(
-                    row["PATNO"], row["EVENT_ID"], row["Description"]
-                )
-                if filename is None:
-                    print(
-                        "Not found: "
-                        + f"{row['PATNO'], row['EVENT_ID'], row['Description']}"
-                    )
-                else:  # copy file to dataset
-                    dest_dir = os.path.join(
-                        "inputs",
-                        f'sub-{row["PATNO"]}',
-                        f'ses-{row["EVENT_ID"]}',
-                        "anat",
-                    )
-                    os.makedirs(dest_dir, exist_ok=True)
-                    dest_file = os.path.join(dest_dir, os.path.basename(filename))
-                    os.rename(filename, dest_file)
-                    row["File name"] = dest_file
-
-        # Update file names in cohort
-        cohort["File name"] = cohort.apply(
-            lambda x: self.find_nifti_file_in_cache(
-                x["PATNO"], x["EVENT_ID"], x["Description"]
-            ),
-            axis=1,
-        )
-
-        # Create symlinks to inputs if necessary
-        if link_in_outputs:
-            for file_name in cohort["File name"].values:
-                dest_dir = os.path.dirname(file_name).replace(
-                    os.path.join(self.data_cache_path, "inputs"),
-                    os.path.join(results_path, "pre_processing"),
-                )
-                dest_file = os.path.join(
-                    dest_dir,
-                    os.path.basename(file_name.replace(self.data_cache_path, "")),
-                )
-                if not os.path.exists(dest_file):
-                    os.makedirs(dest_dir, exist_ok=True)
-                    os.symlink(
-                        os.path.relpath(os.path.abspath(file_name), start=dest_file),
-                        dest_file,
-                    )
-
-    def cohort_id(self, cohort: pd.DataFrame) -> str:
-        """Return a unique id for the cohort.
-
-        The id is built as the hash of the sorted list of patient ids in the cohort.
-        Since cohort_ids may be used to create file names, negative signs ('-')
-        are replaced with underscore characters ('_') since SPM crashes on file names
-        containing negative signs. Therefore, the cohort id is a string that cannot
-        be cast to an integer.
-
-        Parameters
-        ----------
-        cohort: pd.DataFrame
-            A Pandas DataFrame with a column named 'PATNO'.
-
-        Returns
-        -------
-        cohort_id: string
-            A string containing the unique id of the cohort.
-        """
-        return str(hash(tuple(sorted(cohort["PATNO"])))).replace("-", "_")
-
+    # TODO Refactor SPM functions in their own module.
     def write_spm_batch_files(
         self,
         template_job_filename: str,
@@ -814,36 +503,10 @@ class LivingParkUtils:
             os.makedirs(folder, exist_ok=True)
             plt.savefig(
                 os.path.join(
-                    folder, f"qc_{self.cohort_id(cohort)}_{subj_id}.{extension}"
+                    folder, f"qc_{ppmi.cohort_id(cohort)}_{subj_id}.{extension}"
                 )
             )
             plt.close(fig)  # so as to not display the figure
-
-    def make_gif(self, frame_folder: str, output_name: str = "animation.gif") -> None:
-        """Make gifs from a set of images located in the same folder.
-
-        Parameters
-        ----------
-        frame_folder : str
-            Folder where frames are stored. Frames must be in a format supported by PIL.
-
-        output_name : str
-            Base name of the gif file. Will be written in frame_folder.
-        """
-        frames = [
-            Image.open(image)
-            for image in glob.glob(os.path.join(f"{frame_folder}", "*.png"))
-        ]
-        frame_one = frames[0]
-        frame_one.save(
-            os.path.join(frame_folder, output_name),
-            format="GIF",
-            append_images=frames,
-            save_all=True,
-            duration=1000,
-            loop=0,
-        )
-        print(f"Wrote {os.path.join(frame_folder, output_name)}")
 
     def qc_spm_segmentations(
         self,
@@ -860,7 +523,7 @@ class LivingParkUtils:
         cohort: pd.DataFrame
             LivingPark cohort to QC. Must have a column called 'File name'.
         """
-        qc_dir = f"qc_{self.cohort_id(cohort)}"
+        qc_dir = f"qc_{ppmi.cohort_id(cohort)}"
 
         self.export_spm_segmentations(
             cohort,
@@ -871,7 +534,7 @@ class LivingParkUtils:
             cut_coords=cut_coords,
         )
         animation_file = "animation.gif"
-        self.make_gif(qc_dir, output_name=animation_file)
+        qc.make_gif(qc_dir, output_name=animation_file)
         gif_content = open(os.path.join(qc_dir, animation_file), "rb").read()
         image = ImageDisplay(data=gif_content, format="png")
         return image
@@ -904,13 +567,13 @@ class LivingParkUtils:
         )
         segmentation_job_name = os.path.abspath(
             os.path.join(
-                "code", "batches", f"segmentation_{self.cohort_id(cohort)}_job.m"
+                "code", "batches", f"segmentation_{ppmi.cohort_id(cohort)}_job.m"
             )
         )
 
         image_files = sorted(
             os.path.abspath(
-                self.find_nifti_file_in_cache(
+                ppmi.find_nifti_file_in_cache(
                     row["PATNO"],
                     row["EVENT_ID"],
                     row["Description"],
@@ -966,7 +629,7 @@ class LivingParkUtils:
         )
         dartel_norm_job_name = os.path.abspath(
             os.path.join(
-                "code", "batches", f"dartel_norm_{self.cohort_id(cohort)}_job.m"
+                "code", "batches", f"dartel_norm_{ppmi.cohort_id(cohort)}_job.m"
             )
         )
 
@@ -1056,13 +719,13 @@ class LivingParkUtils:
         )
         volumes_job_name = os.path.abspath(
             os.path.join(
-                "code", "batches", f"tissue_volumes_{self.cohort_id(cohort)}_job.m"
+                "code", "batches", f"tissue_volumes_{ppmi.cohort_id(cohort)}_job.m"
             )
         )
 
         image_files = sorted(
             os.path.abspath(
-                self.find_nifti_file_in_cache(
+                ppmi.find_nifti_file_in_cache(
                     row["PATNO"],
                     row["EVENT_ID"],
                     row["Description"],
@@ -1147,7 +810,7 @@ class LivingParkUtils:
             "stats_job.m",
         )
 
-        cohort_id = self.cohort_id(cohort)
+        cohort_id = ppmi.cohort_id(cohort)
 
         stats_job_name = os.path.abspath(
             os.path.join("code", "batches", f"stats_{tissue_class}_{cohort_id}_job.m")
@@ -1193,3 +856,236 @@ class LivingParkUtils:
         self.write_spm_batch_files(stats_job_template, replace_keys, stats_job_name)
         output = self.run_spm_batch_file(stats_job_name)
         return output
+
+    # Methods to deprecate
+    @deprecated(
+        extra="Moved to function `livinpark_utils::LivingParkUtils::get_study_files`."
+    )
+    def download_ppmi_metadata(
+        self,
+        required_files: list,
+        force: bool = False,
+        headless: bool = True,
+        timeout: int = 600,
+    ) -> None:
+        """Download PPMI required study files, if not available.
+
+        Parameters
+        ----------
+        required_files : list
+            Required PPMI study files (cvs files) supported by ppmi_downloader.
+        force : bool, optional
+        headless : bool, default True
+            If True, prevent broswer window to open during download.
+        timeout : int, default 600
+            Number of second before the download times out.
+
+        Raises
+        ------
+        Exception:
+            If failure occurs during download.
+        """
+        from livingpark_utils.download import ppmi
+
+        ppmi_downloader = ppmi.Downloader(self.study_files_dir, headless=headless)
+        return self.get_study_files(
+            query=required_files, default=ppmi_downloader, force=force, timeout=timeout
+        )
+
+    @deprecated(extra="Moved to module `livingpark_utils.dataset.ppmi`.")
+    def clean_protocol_description(self, desc: str) -> str:
+        """Create valid protocol description for file names (as done by PPMI).
+
+        Parameters
+        ----------
+        str
+            Protocol description. Example: "MPRAGE GRAPPA"
+        """
+        from livingpark_utils.dataset.ppmi import clean_protocol_description
+
+        return clean_protocol_description(desc=desc)
+
+    @deprecated(extra="Moved to module `livingpark_utils.dataset.ppmi`.")
+    def find_nifti_file_in_cache(
+        self,
+        subject_id: str,
+        event_id: str,
+        protocol_description: str,
+        base_dir: str = "inputs",
+    ) -> str:
+        """Return cached nifti files, if any.
+
+        Search for nifti file matching `subject_id`, `event_id` and
+        `protocol_description` in the cache directory.
+        If not found, search for nifti file matching `subject_id` and `event_id` only,
+        and return it if a single file is found.
+
+        Parameters
+        ----------
+        subject_id: str
+            Subject ID
+        event_id: str
+            Event ID. Example: BL
+        protocol_description: str
+            Protocol description. Example: "MPRAGE GRAPPA"
+        base_dir: str, default "inputs"
+            The base directory where to look for in the cache.
+            Example: 'outputs/pre_processing'. This is useful when the nifti files
+            are present in more than a single location. For instance, when using SPM
+            pipelines, it is usually reasonable to link the nifti files from the inputs
+            directory to the outputs directory, as SPM write its outputs next to the
+            inputs by default.
+
+        Returns
+        -------
+        str:
+            File name matching the `subject_id`, `event_id`, and if possible
+            `protocol_description`. Empty string if no matching file is found.
+        """
+        from livingpark_utils.dataset.ppmi import find_nifti_file_in_cache
+
+        return find_nifti_file_in_cache(
+            subject_id=subject_id,
+            event_id=event_id,
+            protocol_description=protocol_description,
+            cache_dir=self.data_cache_path,
+            base_dir=base_dir,
+        )
+
+    @deprecated(extra="Moved to module `livingpark_utils.dataset.ppmi`.")
+    def disease_duration(self) -> pd.DataFrame:
+        """Return a DataFrame containing disease durations.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing disease durations for each (patient,event) pair found
+            in "MDS_UPDRS_Part_III.csv".
+        """
+        from livingpark_utils.dataset.ppmi import disease_duration
+
+        return disease_duration(study_data_dir=self.study_files_dir, force=False)
+
+    @deprecated(extra="Moved to module `livingpark_utils.clinical`.")
+    def moca2mmse(self, moca_score: int) -> int:
+        """Return a MMSE score given a MoCA score.
+
+        Parameters
+        ----------
+        moca_score: int
+            MoCA score
+
+        Returns
+        -------
+        int
+            MMSE score corresponding to the MoCA score
+            Conversion made using Table 2 in
+            https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4371590
+        """
+        from livingpark_utils.clinical import moca2mmse
+
+        return moca2mmse(moca_score=moca_score)
+
+    from matplotlib import axes
+
+    @deprecated(extra="Moved to module `livingpark_utils.visualization`.")
+    def reformat_plot_labels(self, dist: pd.Series, ax: axes.Axes, freq: int) -> None:
+        """Reformat tick locations and labels of the x-axis on a plot.
+
+        Parameters
+        ----------
+        dist: pd.Series
+            Series representing the number of elements
+            for each distinct values of a column
+        ax: axes.Axes
+            Matplotlib's Axes class to access figure
+            elements and set the coordinate system
+        freq: int
+            interval between labels
+
+        Returns
+        -------
+        None
+        """
+        from livingpark_utils.visualization import reformat_plot_labels
+
+        return reformat_plot_labels(dist=dist, ax=ax, freq=freq)
+
+    @deprecated(
+        extra=(
+            "Moved to function `livinpark_utils::LivingParkUtils::get_T1_nifti_files`."
+        )
+    )
+    def download_missing_nifti_files(
+        self, cohort: pd.DataFrame, link_in_outputs=False
+    ) -> None:
+        """Download missing nifti files required by cohort.
+
+        For each subject in cohort, look for T1-weighted nifti image file in
+        notebook cache. Download all the missing files from PPMI, move them
+        to notebook cache (inputs directory), and add their names to cohort.
+
+        Parameters
+        ----------
+        cohort: pd.DataFrame
+            A Pandas DataFrame containing columns PATNO (PPMI patient id), EVENT_ID
+            (MRI visit, for instance 'V06'), and Description (for instance
+            'MPRAGE GRAPPA'). Can be built from the file produced by
+            'MRI metadata.ipynb'. A column 'File name' will be added to the DataFrame
+             if not already present. This column
+            will contain the paths of the T1-weighted nifti files associated with the
+             patient, MRI visit, and protocol description.
+        link_in_outputs: bool
+            If True, create symbolic links to input nifti files in
+            outputs/pre-processing. Useful for processing tools that
+            write next to input files, such as SPM.
+
+        Returns
+        -------
+        None
+        """
+        from livingpark_utils.download import ppmi
+
+        ppmi_downloader = ppmi.Downloader(self.study_files_dir, headless=True)
+        return self.get_T1_nifti_files(
+            query=cohort, default=ppmi_downloader, symlink=link_in_outputs
+        )
+
+    @deprecated(extra="Moved to module `livingpark_utils.dataset.ppmi`.")
+    def cohort_id(self, cohort: pd.DataFrame) -> str:
+        """Return a unique id for the cohort.
+
+        The id is built as the hash of the sorted list of patient ids in the cohort.
+        Since cohort_ids may be used to create file names, negative signs ('-')
+        are replaced with underscore characters ('_') since SPM crashes on file names
+        containing negative signs. Therefore, the cohort id is a string that cannot
+        be cast to an integer.
+
+        Parameters
+        ----------
+        cohort: pd.DataFrame
+            A Pandas DataFrame with a column named 'PATNO'.
+
+        Returns
+        -------
+        cohort_id: string
+            A string containing the unique id of the cohort.
+        """
+        from livingpark_utils.dataset.ppmi import cohort_id
+
+        return cohort_id(cohort=cohort)
+
+    @deprecated(extra="Moved to module `livingpark_utils.pipeline.qc`.")
+    def make_gif(self, frame_folder: str, output_name: str = "animation.gif") -> None:
+        """Make gifs from a set of images located in the same folder.
+
+        Parameters
+        ----------
+        frame_folder : str
+            Folder where frames are stored. Frames must be in a format supported by PIL.
+        output_name : str
+            Base name of the gif file. Will be written in frame_folder.
+        """
+        from livingpark_utils.pipeline import qc
+
+        return qc.make_gif(frame_folder=frame_folder, output_name=output_name)

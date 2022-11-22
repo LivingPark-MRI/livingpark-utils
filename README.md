@@ -6,13 +6,18 @@ Usage examples:
 
 ```python
 import livingpark_utils
+from livingpark_utils.dataset import ppmi
+from livingpark_utils.clinical import moca2mmse
 
-utils = livingpark_utils.LivingParkUtils("scherfler-etal")
+utils = livingpark_utils.LivingParkUtils()
 utils.notebook_init()
-utils.download_ppmi_metadata(["Demographics.csv"])
-utils.find_nifti_file_in_cache(x["PATNO"], x["EVENT_ID"], x["Description"])
-utils.disease_duration()
-utils.moca2mmse(2)
+utils.get_study_files(["Demographics.csv"])
+utils.get_T1_nifti_files(cohort)  # `cohort` is of type: pd.DataFrame
+
+ppmi.find_nifti_file_in_cache(x["PATNO"], x["EVENT_ID"], x["Description"])
+ppmi.disease_duration()
+
+moca2mmse(2)
 ```
 
 Usage to execute utility notebooks:
@@ -41,7 +46,7 @@ See also [LivingPark contributing guidelines](https://github.com/LivingPark-MRI/
 
 Make sure to:
 * Use Python type annotations
-* Include Python docstrings for all functions
+* Include Python docstrings using [numpydoc](https://numpydoc.readthedocs.io/en/latest/format.html) format for all functions
 * Format docstrings
 * Run `psf/black` on the files you modify
 * Run `pre-commit run --all` before committing, this will be checked in your PR
