@@ -31,6 +31,15 @@ run.pd_status()
 
 Note: Optionally use the `%%capture` cell magic to further hide notebook outputs.
 
+# CLI commands
+
+Download T1 nifti files using a cohort definition file.
+
+```
+$ get_T1_nifti_files <cohort_file> --downloader (ppmi) [--symlink=<bool>]
+[--force=<bool>] [--timeout=<int>]
+```
+
 ## Troubleshooting
 
 ### Permission issues on Windows
