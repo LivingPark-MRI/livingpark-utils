@@ -56,9 +56,10 @@ def get_T1_nifti_files(
     timeout: int,
     cohort_file: str,
 ):
-    """Download T1 nifti files from cohort csv file.
+    r"""Download T1 nifti files from cohort csv file.
 
     The csv file is generated in he Jupyter notebook for cohort definition.
+    \f
 
     Parameters
     ----------
