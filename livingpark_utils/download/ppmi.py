@@ -67,7 +67,8 @@ class Downloader(DownloaderABC):
             success = list(set(query) - set(missing))
             return success, missing
         finally:
-            getattr(downloader, "quit", lambda: None)()
+            if "downloader" in locals():
+                downloader.quit()
 
         return query, []
 
@@ -136,7 +137,8 @@ class Downloader(DownloaderABC):
             success = query[~query["PATNO"].isin(missing["PATNO"])]
             return success, missing
         finally:
-            getattr(ppmi_dl, "quit", lambda: None)()
+            if "ppmi_dl" in locals():
+                ppmi_dl.quit()
 
         # Find cohort file names among downloaded files
         results_path = "outputs"
