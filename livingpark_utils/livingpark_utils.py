@@ -39,9 +39,11 @@ class LivingParkUtils:
         """
         self.data_cache_path = data_cache_path
         self.study_files_dir = os.path.abspath(os.path.join("inputs", "study_files"))
+        self.code_dir = os.path.abspath("code")
 
         self.setup_notebook_cache()
         os.makedirs(self.study_files_dir, exist_ok=True)
+        os.makedirs(self.code_dir, exist_ok=True)
 
     def setup_notebook_cache(self) -> None:
         """Create, install, and update the cache directory, if needed.
@@ -56,7 +58,6 @@ class LivingParkUtils:
         # Make or update links to cache
         for x in ["inputs", "outputs"]:
             if os.path.islink(x):
-                print(f"removing link {x}")
                 os.remove(x)
             elif os.path.exists(x):
                 raise Exception(f"Directory {x} exists and is not a symlink.")
@@ -232,6 +233,7 @@ class LivingParkUtils:
         assert template_job_filename.endswith("_job.m")
         assert executable_job_file_name.endswith("_job.m")
 
+        os.makedirs(os.path.join(self.code_dir, "batches"), exist_ok=True)
         with open(executable_job_file_name, "w") as f:
             f.write(replace_keys(content, replaced_keys))
 
@@ -394,7 +396,6 @@ class LivingParkUtils:
             len(files) <= 1
         ), f"More than 1 files were matched by expression: {expression}"
         if len(files) == 0:
-            print(f"No file matched by expression: {expression}")
             return ""
         else:
             return os.path.abspath(files[0])
