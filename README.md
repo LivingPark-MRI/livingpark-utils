@@ -6,13 +6,18 @@ Usage examples:
 
 ```python
 import livingpark_utils
-from livingpark_utils.dataset import ppmi
+from livingpark_utils import download
 from livingpark_utils.clinical import moca2mmse
+from livingpark_utils.dataset import ppmi
 
 utils = livingpark_utils.LivingParkUtils()
+downloader = download.ppmi.Downloader(utils.study_files_dir)
+
 utils.notebook_init()
-utils.get_study_files(["Demographics.csv"])
-utils.get_T1_nifti_files(cohort)  # `cohort` is of type: pd.DataFrame
+utils.get_study_files(["Demographics.csv"], default=downloader)
+utils.get_T1_nifti_files(
+    cohort, default=downloader
+)  # `cohort` is of type: pd.DataFrame
 
 ppmi.find_nifti_file_in_cache(x["PATNO"], x["EVENT_ID"], x["Description"])
 ppmi.disease_duration()
