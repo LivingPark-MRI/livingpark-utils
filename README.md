@@ -40,6 +40,9 @@ $ get_T1_nifti_files <cohort_file> --downloader (ppmi) [--symlink=<bool>]
 [--force=<bool>] [--timeout=<int>]
 ```
 
+The `cohort_file` is a csv file created beforehand. Respectively to the chosen downloader, it must have the following columns:
+* PPMI: `PATNO`, `EVENT_ID`, and `Description`.
+
 ## Troubleshooting
 
 ### Permission issues on Windows
