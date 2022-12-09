@@ -25,7 +25,12 @@ dependencies = [
     "numpy",
     "pandas",
     "pytz",
+    "click",
 ]
+
+[project.scripts]
+get_T1_nifti_files = "livingpark_utils.cli:get_T1_nifti_files"
+
 
 [project.urls]
 "Bug Tracker" = "https://github.com/LivingPark-MRI/livingpark_utils/issues"
