@@ -6,6 +6,7 @@ import os.path
 import pkgutil
 import warnings
 from pprint import pprint
+from shutil import copyfile
 
 import boutiques
 import nilearn.plotting as nplt
@@ -335,9 +336,10 @@ class LivingParkUtils:
             log_file_name=log_file_name,
         )
 
-        assert (
-            output.exit_code == 0
-        ), f"Execution error, inspect output object for logs: {output}"
+        if output.exit_code != 0:
+            raise PipelineExecutionError(
+                f"Execution error, inspect output object for logs: {output}"
+            )
 
         print("Execution was successful.")
 
@@ -606,6 +608,21 @@ class LivingParkUtils:
 
         # Force execution since we know there are missing files
         output = self.run_spm_batch_file(segmentation_job_name, force=True)
+
+        # If execution was successful, create a read-only copy of mat files
+        # so that they can be restored when other SPM processes (e.g., tissue volumes)
+        # corrupt them
+        if output.exit_code == 0:
+            mat_files = [
+                self.find_tissue_image_in_cache(1, row["PATNO"], row["EVENT_ID"])
+                .replace("c1", "")
+                .replace(".nii", "_seg8.mat")
+                for index, row in cohort.iterrows()
+            ]
+            for mat_file in mat_files:
+                assert os.path.exists(mat_file), f"{mat_file} doesn't exist"
+                copyfile(mat_file, mat_file + ".bak")
+
         return output
 
     def spm_compute_dartel_normalization(
@@ -1094,3 +1111,9 @@ class LivingParkUtils:
         from livingpark_utils.pipeline import qc
 
         return qc.make_gif(frame_folder=frame_folder, output_name=output_name)
+
+
+class PipelineExecutionError(Exception):
+    """Exception class to report pipeline execution errors."""
+
+    pass
