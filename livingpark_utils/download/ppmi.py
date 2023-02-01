@@ -55,7 +55,7 @@ class Downloader(DownloaderABC):
             If failure occurs during download.
         """
         try:
-            downloader = ppmi_downloader.PPMIDownloader()
+            downloader = ppmi_downloader.PPMIDownloader(headless=self.headless)
             downloader.download_metadata(
                 query,
                 destination_dir=self.out_dir,

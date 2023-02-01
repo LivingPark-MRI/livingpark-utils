@@ -25,6 +25,19 @@ ppmi.disease_duration()
 moca2mmse(2)
 ```
 
+Exclude subjects from a cohort without leaking patient information.
+
+```python
+from livingpark_utils.ignore import (
+    insert_hash,
+    remove_ignored,
+)
+
+# Assuming a cohort definition defined as `cohort`.
+cohort = insert_hash(cohort, columns=["PATNO", "EVENT_ID", "Description"])
+remove_ignored(cohort, ignore_file=".ppmiignore")
+```
+
 Usage to execute utility notebooks:
 
 ```python
@@ -35,6 +48,19 @@ run.pd_status()
 ```
 
 Note: Optionally use the `%%capture` cell magic to further hide notebook outputs.
+
+# CLI commands
+
+Download T1 nifti files using a cohort definition file.
+
+```
+$ get_T1_nifti_files <cohort_file> --downloader (ppmi) [--symlink=<bool>]
+[--force=<bool>] [--timeout=<int>]
+```
+
+The `cohort_file` is a csv file created beforehand. Respectively to the chosen downloader, it must have the following columns:
+
+- PPMI: `PATNO`, `EVENT_ID`, and `Description`.
 
 ## Troubleshooting
 
@@ -50,8 +76,9 @@ We welcome contributions of any kind in the form of Pull-Request to this reposit
 See also [LivingPark contributing guidelines](https://github.com/LivingPark-MRI/documentation).
 
 Make sure to:
-* Use Python type annotations
-* Include Python docstrings using [numpydoc](https://numpydoc.readthedocs.io/en/latest/format.html) format for all functions
-* Format docstrings
-* Run `psf/black` on the files you modify
-* Run `pre-commit run --all` before committing, this will be checked in your PR
+
+- Use Python type annotations
+- Include Python docstrings using [numpydoc](https://numpydoc.readthedocs.io/en/latest/format.html) format for all functions
+- Format docstrings
+- Run `psf/black` on the files you modify
+- Run `pre-commit run --all` before committing, this will be checked in your PR
