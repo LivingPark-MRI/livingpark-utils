@@ -62,7 +62,8 @@ class Downloader(DownloaderABC):
                 headless=self.headless,
                 timeout=timeout,
             )
-        except Exception:
+        except Exception as e:
+            print(e)
             missing = self.missing_study_files(query)
             success = list(set(query) - set(missing))
             return success, missing
