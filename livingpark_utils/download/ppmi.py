@@ -59,7 +59,6 @@ class Downloader(DownloaderABC):
             downloader.download_metadata(
                 query,
                 destination_dir=self.out_dir,
-                headless=self.headless,
                 timeout=timeout,
             )
         except Exception as e:
