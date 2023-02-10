@@ -9,72 +9,67 @@
 # 
 # The resulting file can be used to build imaging cohorts based on PPMI.
 
-# In[1]:
-
-
-from IPython.display import HTML
-
-HTML('''<script>
-code_show=true; 
-function code_toggle() {
- if (code_show){
- $('div.input').hide();
- } else {
- $('div.input').show();
- }
- code_show = !code_show
-} 
-$( document ).ready(code_toggle);
-</script>
-<form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the Python code."></form>''')
-
-
 # # Data download
 # 
 # Let's download information about PPMI 3D T1-weighted scans:
 
+# In[1]:
+
+
+import livingpark_utils
+import ppmi_downloader
+import os
+
+
+utils = livingpark_utils.LivingParkUtils()
+utils.notebook_init()
+
+mri_file_name = '3D_mri_info.csv'
+if not os.path.exists(os.path.join(utils.study_files_dir, mri_file_name)):
+    ppmi = ppmi_downloader.PPMIDownloader()
+    file_name = ppmi.download_3D_T1_info(destination_dir=utils.study_files_dir)
+    os.rename(os.path.join(utils.study_files_dir, file_name), os.path.join(utils.study_files_dir, mri_file_name))
+
+
 # In[2]:
 
 
-import os
-import os.path as op
-import pandas as pd
-import ppmi_downloader
+# import pandas as pd
 
-data_dir = op.join('inputs', 'study_files')
-
-if not op.exists(data_dir):
-    os.makedirs(data_dir)
-
-mri_file_name = '3D_mri_info.csv'
-required_files = [mri_file_name]
-missing_files = [x for x in required_files if not op.exists(os.path.join(data_dir, x))]
-
-if len(missing_files) > 0:
-    ppmi = ppmi_downloader.PPMIDownloader()
-    file_name = ppmi.download_3D_T1_info(destination_dir=data_dir, headless=False)
-    assert(op.exists(op.join(data_dir, file_name)))
-    os.rename(op.join(data_dir, file_name), op.join(data_dir, mri_file_name))
-    ppmi.quit()
-
-print('File downloaded')
+# mri_file_name_all = '3D_mri_info_all.csv'
+# all_images = pd.read_csv(os.path.join(utils.study_files_dir, mri_file_name_all))
+# pd.unique(all_images['Description'])
 
 
-# # Filter sagittal acquisitions
+# # Filter non-T1 acquisitions
 # 
-# PPMI scans were acquired using the following protocols:
+# The "Weighting" parameter in the Imaging Protocol field is not fully reliable as some T1 images have "Weighting=PD". Therefore we extract T1 images as the ones with "Weighting=T1" in their Imaging Protocol OR "T1" in their protocol description. We obtain the following list of protocol descriptions.
 
 # In[3]:
 
 
+import pandas as pd
+
 pd.set_option('display.max_rows', 500)
-mri_info = pd.read_csv(op.join(data_dir, mri_file_name))
+mri_info = pd.read_csv(os.path.join(utils.study_files_dir, mri_file_name))
+
+
+# In[4]:
+
+
+# Keep only T1 images
+mri_info = mri_info[mri_info['Imaging Protocol'].str.contains('Weighting=T1') | 
+                    mri_info['Description'].str.contains('t1') | 
+                    mri_info['Description'].str.contains('T1')]
 mri_info.groupby('Description').count()
 
 
+# # Filter sagittal acquisitions
+# 
+
 # To keep only the sagittal acquisitions, we will remove the following protocols:
 
-# In[4]:
+# In[5]:
 
 
 # Remove sequences that exactly match the following
@@ -90,17 +85,17 @@ print(removed_sequences)
 
 # We will also remove the protocol names containing the following strings:
 
-# In[5]:
+# In[6]:
 
 
 # Remove sequences containing the following strings
-removed_sequences_contain = ['AX', 'axial', 'Phantom']
+removed_sequences_contain = ['AX', 'Ax', 'axial', 'Phantom', 'T2']
 print(removed_sequences_contain)
 
 
 # We obtain the following list of protocols:
 
-# In[6]:
+# In[7]:
 
 
 mri_info = mri_info[~mri_info['Description'].isin(removed_sequences)]
@@ -113,12 +108,13 @@ mri_info.groupby('Description').count()
 
 # Let's use the following map to convert visit names to the codes used in PPMI metadata:
 
-# In[7]:
+# In[8]:
 
 
 visit_map = {
-    'Screening': 'SC',
+    'Screening':'SC',
     'Baseline': 'BL',
+    'Month 6':  'V02',
     'Month 12': 'V04',
     'Month 24': 'V06',
     'Month 36': 'V08',
@@ -133,7 +129,7 @@ print(visit_map)
 
 # We obtain the following distribution by visit code:
 
-# In[8]:
+# In[9]:
 
 
 mri_info['Visit code'] = mri_info['Visit'].apply(lambda x: visit_map[x])
@@ -142,11 +138,11 @@ mri_info.groupby('Visit code').count()
 
 # Finally, let's save our table as csv file:
 
-# In[9]:
+# In[10]:
 
 
 filename = 'MRI_info.csv'
-mri_info.to_csv(op.join(data_dir, filename), index=False)
+mri_info.to_csv(os.path.join(utils.study_files_dir, filename), index=False)
 print(f'Saved in {filename}')
 
 
