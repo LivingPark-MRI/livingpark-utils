@@ -13,7 +13,7 @@
 # 
 # The goal of this notebook is (1) to identify and correct inconsistencies among these variables, (2) to impute missing data for PDSTATE and PDTRTMNT, and (3) to check the sanity of the corrected dataset.
 
-# In[1]:
+# In[ ]:
 
 
 from IPython.display import HTML
@@ -35,7 +35,7 @@ $( document ).ready(code_toggle);
 )
 
 
-# In[2]:
+# In[1]:
 
 
 import datetime
@@ -44,9 +44,9 @@ import warnings
 import pytz
 
 
-warnings.filterwarnings('ignore')
+# warnings.filterwarnings('ignore')
 
-now = datetime.datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S %Z %z')
+now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S %Z %z")
 print(f"This notebook was run on {now}")
 
 
@@ -54,31 +54,21 @@ print(f"This notebook was run on {now}")
 # 
 # The above-mentioned variables are available in PPMI file `MDS_UPDRS_Part_III.csv`. To download this file, we will use package `ppmi-downloader` available on PyPi. The package will ask you for your PPMI login and password.
 
-# In[3]:
+# In[16]:
 
 
-import os
-import os.path as op
-
+from livingpark_utils import download
+import livingpark_utils
 import pandas as pd
-import ppmi_downloader
+import os
 
+utils = livingpark_utils.LivingParkUtils()
+utils.notebook_init()
 
-data_dir = op.join('inputs', 'study_files')
-
-if not op.exists(data_dir):
-    os.makedirs(data_dir)
-required_files = ["MDS_UPDRS_Part_III.csv"]
-missing_files = [x for x in required_files if not op.exists(os.path.join(data_dir, x))]
-
-if len(missing_files) > 0:
-    ppmi = ppmi_downloader.PPMIDownloader()
-    ppmi.download_metadata(
-        missing_files, destination_dir=data_dir, headless=False, timeout=600
-    )
-    ppmi.quit()
-
-df = pd.read_csv(op.join(data_dir, "MDS_UPDRS_Part_III.csv"))
+updrs_file_name = "MDS-UPDRS_Part_III.csv"
+downloader = download.ppmi.Downloader(utils.study_files_dir, headless=False)
+utils.get_study_files([updrs_file_name], default=downloader)
+df = pd.read_csv(os.path.join(utils.study_files_dir, updrs_file_name))
 
 print("File downloaded")
 
@@ -93,7 +83,7 @@ print("File downloaded")
 
 # Number of records with NaNs for all UPDRS-III variables:
 
-# In[4]:
+# In[ ]:
 
 
 updrs3_vars = [
@@ -147,7 +137,7 @@ updrs3_vars = [
 ]
 
 
-# In[5]:
+# In[ ]:
 
 
 len(df[df[updrs3_vars].isnull().all(axis=1)])
@@ -161,7 +151,7 @@ len(df[df[updrs3_vars].isnull().all(axis=1)])
 # 
 # 
 
-# In[6]:
+# In[ ]:
 
 
 df = df[df[updrs3_vars].notna().any(axis=1)]
@@ -169,7 +159,7 @@ df = df[df[updrs3_vars].notna().any(axis=1)]
 
 # Updated number of records with NaNs for all UPDRS-III variables:
 
-# In[7]:
+# In[ ]:
 
 
 len(df[df[updrs3_vars].isnull().all(axis=1)])
@@ -181,7 +171,7 @@ len(df[df[updrs3_vars].isnull().all(axis=1)])
 #      	&#10060; <b>Problem:</b> a few records have PDSTATE=ON and PDTRTMNT=0, which is inconsistent:
 # </div>
 
-# In[8]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -189,7 +179,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # The lines below show the difference between EXAMTM and PDMEDTM. All the records have a PDMEDTM that is earlier to EXAMTM by at most 5 hours:
 
-# In[9]:
+# In[ ]:
 
 
 errors = df[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0)]
@@ -205,7 +195,7 @@ errors = df[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0)]
 # 
 # 
 
-# In[10]:
+# In[ ]:
 
 
 df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0), "PDTRTMNT"] = 1
@@ -213,7 +203,7 @@ df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0), "PDTRTMNT"] = 1
 
 # Let's verify that the inconsistency is now resolved:
 
-# In[11]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -227,7 +217,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # Number of records with a non-empty PDMEDTIME and PDTRTMNT=0:
 
-# In[12]:
+# In[ ]:
 
 
 errors = df[(df["PDMEDTM"].notnull()) & (df["PDTRTMNT"] == 0)]
@@ -236,7 +226,7 @@ len(errors)
 
 # PDMEDTIME values for these records look plausible:
 
-# In[13]:
+# In[ ]:
 
 
 from matplotlib import pyplot as plt
@@ -253,7 +243,7 @@ plt.show()
 
 # ⚙️ Implementation
 
-# In[14]:
+# In[ ]:
 
 
 df.loc[(df["PDTRTMNT"] == 0) & (df["PDMEDTM"].notnull()), "PDTRTMNT"] = 1
@@ -261,7 +251,7 @@ df.loc[(df["PDTRTMNT"] == 0) & (df["PDMEDTM"].notnull()), "PDTRTMNT"] = 1
 
 # Let's verify that the inconsistency is now fixed by counting the number of records with a non-empty PDMEDTIME and PDTRTMNT=0:
 
-# In[15]:
+# In[ ]:
 
 
 errors = df[(df["PDMEDTM"].notnull()) & (df["PDTRTMNT"] == 0)]
@@ -276,7 +266,7 @@ len(errors)
 
 # Number of patients on medication at screening time:
 
-# In[16]:
+# In[ ]:
 
 
 len(df[(df["EVENT_ID"] == "SC") & (df["PDTRTMNT"] == 1)])
@@ -294,7 +284,7 @@ len(df[(df["EVENT_ID"] == "SC") & (df["PDTRTMNT"] == 1)])
 
 # Number of records where PDSTATE=ON and EXAMTM<PDMEDTM:
 
-# In[17]:
+# In[ ]:
 
 
 # ON records
@@ -332,7 +322,7 @@ len(on[on["delta"] < 0])
 
 # ⚙️ Implementation
 
-# In[18]:
+# In[ ]:
 
 
 before = len(df)
@@ -355,7 +345,7 @@ print(f"Removed {before-len(df)} records where PDSTATE=ON and EXAMTM<PDMEDTM")
 
 # Number of records that belong to a visit with more than 3 exams:
 
-# In[19]:
+# In[ ]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -364,7 +354,7 @@ len(pb)
 
 # Each exams triple has an exam with missing EXAMTM and missing PDSTATE:
 
-# In[20]:
+# In[ ]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -380,7 +370,7 @@ HTML(pb_trunc.to_html(index=False))
 
 # ⚙️ Implementation
 
-# In[21]:
+# In[ ]:
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -393,7 +383,7 @@ print(f"Number of removed records: {before_len-len(df)}")
 
 # Let's verify that the inconsistency is solved by counting the number of records that belong to a visit with more than 3 exams:
 
-# In[22]:
+# In[ ]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -408,7 +398,7 @@ len(pb)
 
 # The following table summarizes the number of records for which PDSTATE or PDTRTMNT is missing:
 
-# In[23]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -429,7 +419,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # No record in case 1 has a medication date (PDMEDDT), a medication time (PDMEDTM), or
 # a DBS status (DBS_STATUS):
 
-# In[24]:
+# In[ ]:
 
 
 case_1 = df[(df["PDSTATE"] == "OFF") & (df["PDTRTMNT"].isnull())]
@@ -454,7 +444,7 @@ case_1.groupby(
 
 # ⚙️ Implementation
 
-# In[25]:
+# In[ ]:
 
 
 df.loc[(df["PDSTATE"] == "OFF") & (df["PDTRTMNT"].isnull()), "PDTRTMNT"] = 0
@@ -462,7 +452,7 @@ df.loc[(df["PDSTATE"] == "OFF") & (df["PDTRTMNT"].isnull()), "PDTRTMNT"] = 0
 
 # Let's verify that case 1 is now resolved:
 
-# In[26]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -476,7 +466,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # ⚙️ Implementation
 
-# In[27]:
+# In[ ]:
 
 
 df.loc[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 0), "PDSTATE"] = "OFF"
@@ -484,7 +474,7 @@ df.loc[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 0), "PDSTATE"] = "OFF"
 
 # Let's verify that case 2 is now resolved:
 
-# In[28]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -530,7 +520,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # Let's count the number of records in case 3.a:
 
-# In[29]:
+# In[ ]:
 
 
 case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
@@ -542,13 +532,13 @@ print(f"Found {len(a)} records in Case 3.a")
 
 # Number of records in case 3.b with missing EXAMTM or missing PDMEDTM:
 
-# In[30]:
+# In[ ]:
 
 
 len(df[case_3 & ((df["EXAMTM"].isnull()) | (df["PDMEDTM"].isnull()))])
 
 
-# In[31]:
+# In[ ]:
 
 
 before_len = len(df)
@@ -561,13 +551,13 @@ print(f"Removed {before_len-len(df)} record(s) with missing EXAMTM or PDMEDTM")
 
 # Updated records distribution in case 3:
 
-# In[32]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# In[33]:
+# In[ ]:
 
 
 case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
@@ -577,13 +567,13 @@ case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
 
 # Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM:
 
-# In[34]:
+# In[ ]:
 
 
 len(df[case_3 & (df["PDMEDTM"] <= df["EXAMTM"])])
 
 
-# In[35]:
+# In[ ]:
 
 
 def to_secs(x):
@@ -601,7 +591,7 @@ def to_secs(x):
 
 # Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM and $30\,min \le \text{EXAMTM}-\text{PDMEDTM} < 6\,hours$:
 
-# In[36]:
+# In[ ]:
 
 
 len(
@@ -615,7 +605,7 @@ len(
 
 # Let's set PDSTATE=ON for these records.
 
-# In[37]:
+# In[ ]:
 
 
 df.loc[
@@ -628,13 +618,13 @@ df.loc[
 
 # Updated records distribution:
 
-# In[38]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# In[39]:
+# In[ ]:
 
 
 case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
@@ -642,7 +632,7 @@ case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
 
 # Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM and $\text{EXAMTM-PDMEDTM} < 30\,min$:
 
-# In[40]:
+# In[ ]:
 
 
 len(
@@ -656,7 +646,7 @@ len(
 
 # Let's discard these records:
 
-# In[41]:
+# In[ ]:
 
 
 df.drop(
@@ -671,13 +661,13 @@ df.drop(
 
 # Updated records distribution:
 
-# In[42]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# In[43]:
+# In[ ]:
 
 
 case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
@@ -685,7 +675,7 @@ case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
 
 # Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM and $\text{EXAMTM-PDMEDTM} \ge 6\,hours$:
 
-# In[44]:
+# In[ ]:
 
 
 len(
@@ -698,7 +688,7 @@ len(
 
 # Let's set PDSTATE=OFF for these records.
 
-# In[45]:
+# In[ ]:
 
 
 df.loc[
@@ -709,7 +699,7 @@ df.loc[
 
 # Updated records distribution:
 
-# In[46]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -719,7 +709,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # Number of records in case 3.b where PDMEDTM is later than EXAMTM:
 
-# In[47]:
+# In[ ]:
 
 
 case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
@@ -732,7 +722,7 @@ len(df[case_3 & (df["PDMEDTM"] > df["EXAMTM"])])
 
 # Distribution of EXAM times when $\text{PDMEDTM} > \text{EXAMTM}$:
 
-# In[48]:
+# In[ ]:
 
 
 import numpy as np
@@ -746,7 +736,7 @@ plt.ylabel("Number of EXAMTM records");
 
 # Number of records in case 3 where PDMEDTM is after EXAMTM and PDMEDTM is after 4pm:
 
-# In[49]:
+# In[ ]:
 
 
 len(
@@ -760,7 +750,7 @@ len(
 
 # Let's set PDSTATE=OFF for these records:
 
-# In[50]:
+# In[ ]:
 
 
 df.loc[
@@ -773,13 +763,13 @@ df.loc[
 
 # Updated records distribution:
 
-# In[51]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# In[52]:
+# In[ ]:
 
 
 case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
@@ -789,7 +779,7 @@ case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
 
 # Number of records in case 3 where PDMEDTM is later than EXAMTM and PDMEDTM is before 4pm:
 
-# In[53]:
+# In[ ]:
 
 
 len(df[case_3 & (df["EXAMTM"].apply(to_secs) < df["PDMEDTM"].apply(to_secs))])
@@ -797,7 +787,7 @@ len(df[case_3 & (df["EXAMTM"].apply(to_secs) < df["PDMEDTM"].apply(to_secs))])
 
 # Let's remove these records. 
 
-# In[54]:
+# In[ ]:
 
 
 df.drop(
@@ -806,7 +796,7 @@ df.drop(
 )
 
 
-# In[55]:
+# In[ ]:
 
 
 case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
@@ -814,7 +804,7 @@ case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
 
 # Let's verify that case 3 (PDSTATE=NaN, PDTRTMNT=1) is now resolved:
 
-# In[56]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -825,7 +815,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # Similar to case 1, no record in case 4 has a medication date (PDMEDDT), a medication time (PDMEDTM), or
 # a DBS status (DBS_STATUS):
 
-# In[57]:
+# In[ ]:
 
 
 case_4 = df[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"].isnull())]
@@ -850,7 +840,7 @@ case_4.groupby(
 
 # ⚙️ Implementation
 
-# In[58]:
+# In[ ]:
 
 
 df_1 = df.copy()
@@ -861,7 +851,7 @@ df = df_1
 
 # Let's verify that case 4 is now resolved:
 
-# In[59]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -876,7 +866,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # ⚙️ Implementation
 
-# In[60]:
+# In[ ]:
 
 
 df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"].isnull()), "PDTRTMNT"] = 1
@@ -884,7 +874,7 @@ df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"].isnull()), "PDTRTMNT"] = 1
 
 # Let's verify that case 5 is now resolved:
 
-# In[61]:
+# In[ ]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -894,7 +884,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # 
 # Let's save the cleaned file:
 
-# In[62]:
+# In[ ]:
 
 
 filename = "MDS_UPDRS_Part_III_clean.csv"
@@ -908,17 +898,18 @@ print(f"Cleaned file saved in {filename}")
 
 # **IF** visit has two exam **THEN** one is ON and the other one is OFF:
 
-# In[63]:
+# In[ ]:
 
 
-a = df.groupby(['PATNO', 'EVENT_ID']).filter(lambda x: len(x)==2)
-a.groupby(['PATNO', 'EVENT_ID']).filter(lambda x: x.iloc[[0]]['PDSTATE'].to_string() ==
-                                                  x.iloc[[1]]['PDSTATE'].to_string()).empty
+a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) == 2)
+a.groupby(["PATNO", "EVENT_ID"]).filter(
+    lambda x: x.iloc[[0]]["PDSTATE"].to_string() == x.iloc[[1]]["PDSTATE"].to_string()
+).empty
 
 
 # **IF** PDSTATE=ON **THEN** EXAMTM>PDMEDTM
 
-# In[64]:
+# In[ ]:
 
 
 df[
@@ -929,7 +920,7 @@ df[
 
 # **IF** PDTRTMNT=0 **THEN** there is a single visit and PDSTATE=off
 
-# In[65]:
+# In[ ]:
 
 
 assert (
@@ -949,32 +940,35 @@ print("True")
 
 # A patient cannot become unmedicated after being medicated:
 
-# In[66]:
+# In[ ]:
 
 
 def wrong_pairs(x):
     rows = [row for index, row in x.iterrows()]
     for a in rows:
         for b in rows:
-            if a['EVENT_ID'] == b['EVENT_ID']:
+            if a["EVENT_ID"] == b["EVENT_ID"]:
                 continue
             # If dates are equal, we cannot say anything
-            if pd.to_datetime(a['INFODT']) == pd.to_datetime(b['INFODT']):
-                return False                   
+            if pd.to_datetime(a["INFODT"]) == pd.to_datetime(b["INFODT"]):
+                return False
             # If a is later than b, a['PDTRTMNT'] has to be larger or equal to b['PDTRTMNT']
-            if pd.to_datetime(a['INFODT']) > pd.to_datetime(b['INFODT']):
-                if int(a['PDTRTMNT']) < int(b['PDTRTMNT']):
+            if pd.to_datetime(a["INFODT"]) > pd.to_datetime(b["INFODT"]):
+                if int(a["PDTRTMNT"]) < int(b["PDTRTMNT"]):
                     return True
                 return False
             # a is earlier than b: a['PDTRTMNT'] has to be lower or equal to b['PDTRTMNT']
-            if int(a['PDTRTMNT']) > int(b['PDTRTMNT']):
+            if int(a["PDTRTMNT"]) > int(b["PDTRTMNT"]):
                 return True
             return False
 
-df.groupby(['PATNO']).filter(lambda x: x['PDTRTMNT'].nunique() > 1).groupby('PATNO').filter(wrong_pairs).empty
+
+df.groupby(["PATNO"]).filter(lambda x: x["PDTRTMNT"].nunique() > 1).groupby(
+    "PATNO"
+).filter(wrong_pairs).empty
 
 
-# In[67]:
+# In[ ]:
 
 
 # off = (df['PDSTATE']=='OFF') & (df['PDMEDTM']<='16:00:00')
@@ -990,7 +984,7 @@ df.groupby(['PATNO']).filter(lambda x: x['PDTRTMNT'].nunique() > 1).groupby('PAT
 
 
 
-# In[68]:
+# In[ ]:
 
 
 # off = (df['PDSTATE']=='OFF') & (df['PDMEDTM']<='16:00:00')
