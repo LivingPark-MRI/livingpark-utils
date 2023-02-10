@@ -24,11 +24,14 @@ import os
 utils = livingpark_utils.LivingParkUtils()
 utils.notebook_init()
 
-mri_file_name = '3D_mri_info.csv'
+mri_file_name = "3D_mri_info.csv"
 if not os.path.exists(os.path.join(utils.study_files_dir, mri_file_name)):
     ppmi = ppmi_downloader.PPMIDownloader()
     file_name = ppmi.download_3D_T1_info(destination_dir=utils.study_files_dir)
-    os.rename(os.path.join(utils.study_files_dir, file_name), os.path.join(utils.study_files_dir, mri_file_name))
+    os.rename(
+        os.path.join(utils.study_files_dir, file_name),
+        os.path.join(utils.study_files_dir, mri_file_name),
+    )
 
 
 # In[2]:
@@ -50,7 +53,7 @@ if not os.path.exists(os.path.join(utils.study_files_dir, mri_file_name)):
 
 import pandas as pd
 
-pd.set_option('display.max_rows', 500)
+pd.set_option("display.max_rows", 500)
 mri_info = pd.read_csv(os.path.join(utils.study_files_dir, mri_file_name))
 
 
@@ -58,10 +61,12 @@ mri_info = pd.read_csv(os.path.join(utils.study_files_dir, mri_file_name))
 
 
 # Keep only T1 images
-mri_info = mri_info[mri_info['Imaging Protocol'].str.contains('Weighting=T1') | 
-                    mri_info['Description'].str.contains('t1') | 
-                    mri_info['Description'].str.contains('T1')]
-mri_info.groupby('Description').count()
+mri_info = mri_info[
+    mri_info["Imaging Protocol"].str.contains("Weighting=T1")
+    | mri_info["Description"].str.contains("t1")
+    | mri_info["Description"].str.contains("T1")
+]
+mri_info.groupby("Description").count()
 
 
 # # Filter sagittal acquisitions
@@ -73,13 +78,14 @@ mri_info.groupby('Description').count()
 
 
 # Remove sequences that exactly match the following
-removed_sequences=['COR', # coronal acquisitions
-                   'Coronal', 
-                   'Cal Head 24',  # not sure what this is
-                   'Transverse',  # transverse (axial) acquisitions
-                   'tra_T1_MPRAGE',
-                   'TRA'
-                  ]
+removed_sequences = [
+    "COR",  # coronal acquisitions
+    "Coronal",
+    "Cal Head 24",  # not sure what this is
+    "Transverse",  # transverse (axial) acquisitions
+    "tra_T1_MPRAGE",
+    "TRA",
+]
 print(removed_sequences)
 
 
@@ -89,7 +95,7 @@ print(removed_sequences)
 
 
 # Remove sequences containing the following strings
-removed_sequences_contain = ['AX', 'Ax', 'axial', 'Phantom', 'T2']
+removed_sequences_contain = ["AX", "Ax", "axial", "Phantom", "T2"]
 print(removed_sequences_contain)
 
 
@@ -98,10 +104,10 @@ print(removed_sequences_contain)
 # In[7]:
 
 
-mri_info = mri_info[~mri_info['Description'].isin(removed_sequences)]
+mri_info = mri_info[~mri_info["Description"].isin(removed_sequences)]
 for s in removed_sequences_contain:
-    mri_info = mri_info[~mri_info['Description'].str.contains(s)]
-mri_info.groupby('Description').count()
+    mri_info = mri_info[~mri_info["Description"].str.contains(s)]
+mri_info.groupby("Description").count()
 
 
 # # Convert visit names
@@ -112,17 +118,17 @@ mri_info.groupby('Description').count()
 
 
 visit_map = {
-    'Screening':'SC',
-    'Baseline': 'BL',
-    'Month 6':  'V02',
-    'Month 12': 'V04',
-    'Month 24': 'V06',
-    'Month 36': 'V08',
-    'Month 48': 'V10',
-    'Symptomatic Therapy': 'ST',
-    'Unscheduled Visit 01': 'U01',
-    'Unscheduled Visit 02': 'U02',
-    'Premature Withdrawal': 'PW'
+    "Screening": "SC",
+    "Baseline": "BL",
+    "Month 6": "V02",
+    "Month 12": "V04",
+    "Month 24": "V06",
+    "Month 36": "V08",
+    "Month 48": "V10",
+    "Symptomatic Therapy": "ST",
+    "Unscheduled Visit 01": "U01",
+    "Unscheduled Visit 02": "U02",
+    "Premature Withdrawal": "PW",
 }
 print(visit_map)
 
@@ -132,8 +138,8 @@ print(visit_map)
 # In[9]:
 
 
-mri_info['Visit code'] = mri_info['Visit'].apply(lambda x: visit_map[x])
-mri_info.groupby('Visit code').count()
+mri_info["Visit code"] = mri_info["Visit"].apply(lambda x: visit_map[x])
+mri_info.groupby("Visit code").count()
 
 
 # Finally, let's save our table as csv file:
@@ -141,9 +147,9 @@ mri_info.groupby('Visit code').count()
 # In[10]:
 
 
-filename = 'MRI_info.csv'
+filename = "MRI_info.csv"
 mri_info.to_csv(os.path.join(utils.study_files_dir, filename), index=False)
-print(f'Saved in {filename}')
+print(f"Saved in {filename}")
 
 
 # In[ ]:
