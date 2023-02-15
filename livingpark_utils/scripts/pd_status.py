@@ -6,14 +6,14 @@
 # The medication status of PD patients is important as medication importantly affects clinical measures such as the Hoehn & Yahr score used in many studies. In PPMI, medication is available through the following main variables:
 # * PDSTATE (ON/OFF): the current functional state of the patient
 # * PDTRTMNT (0/1): 1 if the participant is on PD medication or receives deep brain stimulation, 0 otherwise
-# * PDMEDTM: time of most recent PD medication dose
-# * PDMEDDT: date of most recent PD medication dose
+# * ON/OFFPDMEDTM: time of most recent PD medication dose
+# * ON/OFFPDMEDDT: date of most recent PD medication dose
 # 
 # As mentioned in the "Methods for Defining PD Med Use" in PPMI study data, OFF state requires that the last dose of levodopa or dopamine agonist was taken 6 hours or more before MDS-UPDRS Part III assessment.
 # 
 # The goal of this notebook is (1) to identify and correct inconsistencies among these variables, (2) to impute missing data for PDSTATE and PDTRTMNT, and (3) to check the sanity of the corrected dataset.
 
-# In[ ]:
+# In[1]:
 
 
 from IPython.display import HTML
@@ -35,7 +35,7 @@ $( document ).ready(code_toggle);
 )
 
 
-# In[1]:
+# In[2]:
 
 
 import datetime
@@ -54,7 +54,7 @@ print(f"This notebook was run on {now}")
 # 
 # The above-mentioned variables are available in PPMI file `MDS_UPDRS_Part_III.csv`. To download this file, we will use package `ppmi-downloader` available on PyPi. The package will ask you for your PPMI login and password.
 
-# In[16]:
+# In[3]:
 
 
 from livingpark_utils import download
@@ -75,116 +75,24 @@ print("File downloaded")
 
 # # ⁉️ Inconsistencies
 
-# ## Records with no value
-
-# <div class="alert alert-block alert-danger">
-#      	&#10060; <b>Problem:</b> some records have missing data for all UPDRS-III variables.
-# </div>
-
-# Number of records with NaNs for all UPDRS-III variables:
-
-# In[ ]:
-
-
-updrs3_vars = [
-    "PDMEDDT",
-    "PDMEDTM",
-    "PDSTATE",
-    "EXAMTM",
-    "DBS_STATUS",
-    "NP3SPCH",
-    "NP3FACXP",
-    "NP3RIGN",
-    "NP3RIGRU",
-    "NP3RIGLU",
-    "NP3RIGRL",
-    "NP3RIGLL",
-    "NP3FTAPR",
-    "NP3FTAPL",
-    "NP3HMOVR",
-    "NP3HMOVL",
-    "NP3PRSPR",
-    "NP3PRSPL",
-    "NP3TTAPR",
-    "NP3TTAPL",
-    "NP3LGAGR",
-    "NP3LGAGL",
-    "NP3RISNG",
-    "NP3GAIT",
-    "NP3FRZGT",
-    "NP3PSTBL",
-    "NP3POSTR",
-    "NP3BRADY",
-    "NP3PTRMR",
-    "NP3PTRML",
-    "NP3KTRMR",
-    "NP3KTRML",
-    "NP3RTARU",
-    "NP3RTALU",
-    "NP3RTARL",
-    "NP3RTALL",
-    "NP3RTALJ",
-    "NP3RTCON",
-    "NP3TOT",
-    "DYSKPRES",
-    "DYSKIRAT",
-    "NHY",
-    "DBSONTM",
-    "DBSOFFTM",
-    "HRPOSTMED",
-    "HRDBSOFF",
-    "HRDBSON",
-]
-
-
-# In[ ]:
-
-
-len(df[df[updrs3_vars].isnull().all(axis=1)])
-
-
-# <div class="alert alert-block alert-success">
-#      	&#10003; <b>Proposed correction</b>: remove these records.
-# </div>
-
-# ⚙️ Implementation
-# 
-# 
-
-# In[ ]:
-
-
-df = df[df[updrs3_vars].notna().any(axis=1)]
-
-
-# Updated number of records with NaNs for all UPDRS-III variables:
-
-# In[ ]:
-
-
-len(df[df[updrs3_vars].isnull().all(axis=1)])
-
-
 # ## PDTRTMNT=0 and PDSTATE=ON
 # 
 # <div class="alert alert-block alert-danger">
 #      	&#10060; <b>Problem:</b> a few records have PDSTATE=ON and PDTRTMNT=0, which is inconsistent:
 # </div>
 
-# In[ ]:
+# In[4]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# The lines below show the difference between EXAMTM and PDMEDTM. All the records have a PDMEDTM that is earlier to EXAMTM by at most 5 hours:
-
-# In[ ]:
+# In[5]:
 
 
 errors = df[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0)]
 # print the time difference between EXAMTM and PDMEDTM
-(pd.to_datetime(errors["EXAMTM"]) - pd.to_datetime(errors["PDMEDTM"]))
+#(pd.to_datetime(errors["ONEXAMTM"]) - pd.to_datetime(errors["ONPDMEDTM"]))
 
 
 # <div class="alert alert-block alert-success">
@@ -195,7 +103,7 @@ errors = df[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0)]
 # 
 # 
 
-# In[ ]:
+# In[6]:
 
 
 df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0), "PDTRTMNT"] = 1
@@ -203,59 +111,10 @@ df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0), "PDTRTMNT"] = 1
 
 # Let's verify that the inconsistency is now resolved:
 
-# In[ ]:
+# In[7]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# ## PDTRTMNT=0 and PDMEDTM not empty
-# 
-# <div class="alert alert-block alert-danger">
-#  	&#10060; <b>Problem:</b> some records have a non-empty PDMEDTIME and have PDTRTMNT=0, which is inconsistent.
-#     </div>
-
-# Number of records with a non-empty PDMEDTIME and PDTRTMNT=0:
-
-# In[ ]:
-
-
-errors = df[(df["PDMEDTM"].notnull()) & (df["PDTRTMNT"] == 0)]
-len(errors)
-
-
-# PDMEDTIME values for these records look plausible:
-
-# In[ ]:
-
-
-from matplotlib import pyplot as plt
-
-pd.to_datetime(errors["PDMEDTM"]).dt.hour.hist(bins=24, xrot=90, legend=True)
-plt.xlabel("Hour of the day")
-plt.ylabel("Number of records")
-plt.show()
-
-
-# <div class="alert alert-block alert-success">
-#     	&#10003; <b>Proposed correction:</b> set PDTRTMNT=1. It is unlikely that a plausible medication time was entered by mistake.
-# </div>
-
-# ⚙️ Implementation
-
-# In[ ]:
-
-
-df.loc[(df["PDTRTMNT"] == 0) & (df["PDMEDTM"].notnull()), "PDTRTMNT"] = 1
-
-
-# Let's verify that the inconsistency is now fixed by counting the number of records with a non-empty PDMEDTIME and PDTRTMNT=0:
-
-# In[ ]:
-
-
-errors = df[(df["PDMEDTM"].notnull()) & (df["PDTRTMNT"] == 0)]
-len(errors)
 
 
 # ## EVENT_ID = SC and PDTRTMNT = 1
@@ -266,7 +125,7 @@ len(errors)
 
 # Number of patients on medication at screening time:
 
-# In[ ]:
+# In[8]:
 
 
 len(df[(df["EVENT_ID"] == "SC") & (df["PDTRTMNT"] == 1)])
@@ -284,7 +143,7 @@ len(df[(df["EVENT_ID"] == "SC") & (df["PDTRTMNT"] == 1)])
 
 # Number of records where PDSTATE=ON and EXAMTM<PDMEDTM:
 
-# In[ ]:
+# In[9]:
 
 
 # ON records
@@ -310,7 +169,7 @@ def to_secs(x):
     return int(hour) * 3600 + int(mn) * 60 + int(sec)
 
 
-on["delta"] = on["EXAMTM"].apply(to_secs) - on["PDMEDTM"].apply(to_secs)
+on["delta"] = on["ONEXAMTM"].apply(to_secs) - on["ONPDMEDTM"].apply(to_secs)
 len(on[on["delta"] < 0])
 
 
@@ -322,16 +181,16 @@ len(on[on["delta"] < 0])
 
 # ⚙️ Implementation
 
-# In[ ]:
+# In[10]:
 
 
 before = len(df)
 df = df[
     ~(
         (df["PDSTATE"] == "ON")
-        & df["EXAMTM"].notnull()
-        & df["PDMEDTM"].notnull()
-        & (df["EXAMTM"] < df["PDMEDTM"])
+        & df["ONEXAMTM"].notnull()
+        & df["ONPDMEDTM"].notnull()
+        & (df["ONEXAMTM"] < df["ONPDMEDTM"])
     )
 ]
 print(f"Removed {before-len(df)} records where PDSTATE=ON and EXAMTM<PDMEDTM")
@@ -345,36 +204,36 @@ print(f"Removed {before-len(df)} records where PDSTATE=ON and EXAMTM<PDMEDTM")
 
 # Number of records that belong to a visit with more than 3 exams:
 
-# In[ ]:
+# In[11]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
 len(pb)
 
 
-# Each exams triple has an exam with missing EXAMTM and missing PDSTATE:
+# Each exams triple has an exam with missing ONEXAMTM, missing OFFEXAMTM, and missing PDSTATE:
 
-# In[ ]:
+# In[12]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
-pb_trunc = pb[["EVENT_ID", "PDSTATE", "EXAMTM"]]
+pb_trunc = pb[["EVENT_ID", "PDSTATE", "ONEXAMTM", "OFFEXAMTM"]]
 from IPython.display import HTML
 
 HTML(pb_trunc.to_html(index=False))
 
 
 # <div class="alert alert-block alert-success">
-#   	&#10003;   <b>Proposed correction:</b> remove exam with EXAMTM=NaN and PDSTATE=NaN when visit has 3 exams.
+#   	&#10003;   <b>Proposed correction:</b> remove exam with ONEXAMTM=NaN and OFFEXAMTM=NaN and PDSTATE=NaN when visit has 3 exams.
 # </div>
 
 # ⚙️ Implementation
 
-# In[ ]:
+# In[13]:
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
-index = (a[(a["PDSTATE"].isnull()) & (a["EXAMTM"].isnull())]).index
+index = (a[(a["PDSTATE"].isnull()) & (a["ONEXAMTM"].isnull()) & (a["OFFEXAMTM"].isnull())]).index
 
 before_len = len(df)
 df = df[~df.index.isin(index)]
@@ -383,7 +242,58 @@ print(f"Number of removed records: {before_len-len(df)}")
 
 # Let's verify that the inconsistency is solved by counting the number of records that belong to a visit with more than 3 exams:
 
-# In[ ]:
+# In[14]:
+
+
+pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
+len(pb)
+
+
+# There are still records that belong to a visit with more than 3 exams.
+
+# <div class="alert alert-block alert-success">
+#   	&#10003;   <b>Proposed correction:</b> remove duplicated records.
+# </div>
+
+# ⚙️ Implementation
+
+# In[15]:
+
+
+before_len = len(df)
+df = df[~df.drop(["REC_ID"], axis=1).duplicated(keep='first')]
+print(f"Number of removed records: {before_len-len(df)}")
+
+
+# There are still records that belong to a visit with more than 3 exams. The corresponding visits all have 2 exams with PDSTATE=OFF, however, only one of these visits has HRPOSTMED != NaN. 
+
+# In[16]:
+
+
+pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
+pb[["EVENT_ID", "PDSTATE", "HRPOSTMED", "OFFPDMEDDT", "OFFPDMEDTM"]]
+
+
+# <div class="alert alert-block alert-success">
+#   	&#10003;   <b>Proposed correction:</b> remove exam with HRPOSTMED=NaN and PDSTATE=OFF when visit has 3 exams.
+# </div>
+
+# ⚙️ Implementation
+
+# In[17]:
+
+
+a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
+index = (a[(a["HRPOSTMED"].isnull()) & (a["PDSTATE"] == 'OFF')]).index
+
+before_len = len(df)
+df = df[~df.index.isin(index)]
+print(f"Number of removed records: {before_len-len(df)}")
+
+
+# Let's verify that the inconsistency is solved by counting the number of records that belong to a visit with more than 3 exams:
+
+# In[18]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -398,7 +308,7 @@ len(pb)
 
 # The following table summarizes the number of records for which PDSTATE or PDTRTMNT is missing:
 
-# In[ ]:
+# In[19]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -408,57 +318,17 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # 
 # |               |PDSTATE | PDTRTMNT | Number of records |
 # |---------------|--------|----------|-------------------|
-# | **Case 1**  | OFF    | NaN      | 6                 |
-# | **Case 2** | NaN    | 0        | 6947          |
-# | **Case 3**|  NaN   | 1        | 633               |
-# | **Case 4** | NaN    | NaN      | 2322             |
-# | **Case 5**  | ON     | NaN      | 1                 |
+# | **Case 1** | NaN    | 0        | 8674          |
+# | **Case 2**|  NaN   | 1        | 2               |
+# | **Case 3** | NaN    | NaN      | 2318             |
 
-# ## Case 1: PDSTATE=OFF and PDTRTMNT=NaN
-
-# No record in case 1 has a medication date (PDMEDDT), a medication time (PDMEDTM), or
-# a DBS status (DBS_STATUS):
-
-# In[ ]:
-
-
-case_1 = df[(df["PDSTATE"] == "OFF") & (df["PDTRTMNT"].isnull())]
-case_1.groupby(
-    [
-        "PDMEDDT",
-        "PDMEDTM",
-        "DBS_STATUS",
-        "HRPOSTMED",
-        "DBSONTM",
-        "DBSOFFTM",
-        "HRDBSOFF",
-        "HRDBSON",
-    ],
-    dropna=False,
-)[["REC_ID"]].count()
-
-
-# <div class="alert alert-block alert-success">
-#  	&#10003;    <b>Proposed correction</b>: set PDTRTMNT=0. It is unlikely that these records correspond to medicated patients when none of the variables related to medication have a value.
-# </div>
-
-# ⚙️ Implementation
-
-# In[ ]:
-
-
-df.loc[(df["PDSTATE"] == "OFF") & (df["PDTRTMNT"].isnull()), "PDTRTMNT"] = 0
-
-
-# Let's verify that case 1 is now resolved:
-
-# In[ ]:
+# In[20]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# ## Case 2: PDSTATE=NaN and PDTRTMNT=0
+# ## Case 1: PDSTATE=NaN and PDTRTMNT=0
 # 
 # <div class="alert alert-block alert-success">
 #    	&#10003;   <b>Proposed correction</b>: set PDSTATE=OFF. The patient is not medicated and for this reason PDSTATE is likely to not have been entered.
@@ -466,7 +336,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # ⚙️ Implementation
 
-# In[ ]:
+# In[21]:
 
 
 df.loc[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 0), "PDSTATE"] = "OFF"
@@ -474,356 +344,48 @@ df.loc[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 0), "PDSTATE"] = "OFF"
 
 # Let's verify that case 2 is now resolved:
 
-# In[ ]:
+# In[22]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# ## Case 3: PDSTATE=NaN and PDTRTMNT=1
+# ## Case 2: PDSTATE=NaN and PDTRTMNT=1
 # 
 # <div class="alert alert-block alert-success">
-#     	&#10003; <b>Proposed correction</b>: 
-#     <ul>
-#         <li>(a) <b>IF</b> record belongs to a visit with two exams:</li>
-#             <ul>
-#                 <li> Set PDSTATE=OFF for record with earliest EXAMTM</li>
-#                 <li> Set PDSTATE=ON for record with latest EXAMTM</li>
-#             </ul>
-#         <li>(b) <b>ELSE</b>: determine PDSTATE as a function of PDMEDTM and EXAMTM:</li>
-#             <ul>
-#                 <li>(i) <b>IF</b> PDMEDTM or EXAMTM are missing <b>THEN</b> discard record.</li>
-#                 <li> (ii) <b>IF</b> PDMEDTM is earlier than EXAMTM:</li>
-#                     <ul>
-#                         <li><b>IF</b> EXAMTM-PDMEDTM < 6 hours (PPMI cut-off)<b>THEN</b>:
-#                 <ul><li><b>IF</b> EXAMTM-PDMEDTM >= 30 min <b>THEN</b> set PDSTATE=ON.</li>
-#                     <li><b>ELSE</b>: discard record.</ul>
-#         <li><b>ELSE:</b> set PDSTATE=OFF</li>
-#                     </ul>
-#                 <li> (iii) <b>IF</b> PDMEDTM is later than EXAMTM <b>THEN</b>:
-#                     <UL>
-#                         <li>(a) <b>IF</b> PDMEDTM is later than 4pm <b>THEN</b> assume record belongs to the previous day, set PDSTATE=OFF.</li>
-#                         <li>(b) <b>ELSE</b>                     
-#                     discard record.
-#                             </ul></li>
-#     </ul>
-#     
-#     
-#   
+#     	&#10003; <b>Proposed correction</b>: drop the record as there are only 2 of them. 
 # </div>
 
-# ⚙️ Implementation
+# In[23]:
+
+
+df = df[~(df['PDSTATE'].isnull()) | (df['PDTRTMNT']!=1)]
+
+
+# Updated records distribution:
+
+# In[24]:
+
+
+df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
+
+
+# ## Case 3: PDSTATE=NaN and PDTRTMNT=NaN
 # 
-# Let's implement each sub-case separately.
+# Similar to case 1, no record in case 3 has a medication date (ON/OFFPDMEDDT), a medication time (ON/OFFPDMEDTM), or
+# a DBS status (DBSYN):
 
-# ### Case 3.a: visits with two exams
+# In[25]:
 
-# Let's count the number of records in case 3.a:
 
-# In[ ]:
-
-
-case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
-a = df[case_3].groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) == 2)
-print(f"Found {len(a)} records in Case 3.a")
-
-
-# ### Case 3.b.i: visits with one exam, missing EXAMTM or PDMEDTM
-
-# Number of records in case 3.b with missing EXAMTM or missing PDMEDTM:
-
-# In[ ]:
-
-
-len(df[case_3 & ((df["EXAMTM"].isnull()) | (df["PDMEDTM"].isnull()))])
-
-
-# In[ ]:
-
-
-before_len = len(df)
-df.drop(
-    df[case_3 & ((df["EXAMTM"].isnull()) | (df["PDMEDTM"].isnull()))].index,
-    inplace=True,
-)
-print(f"Removed {before_len-len(df)} record(s) with missing EXAMTM or PDMEDTM")
-
-
-# Updated records distribution in case 3:
-
-# In[ ]:
-
-
-df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# In[ ]:
-
-
-case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
-
-
-# ### Case 3.b.ii: visits with one exam, PDMEDTM earlier than EXAMTM
-
-# Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM:
-
-# In[ ]:
-
-
-len(df[case_3 & (df["PDMEDTM"] <= df["EXAMTM"])])
-
-
-# In[ ]:
-
-
-def to_secs(x):
-    if str(x) == "nan":
-        import numpy as np
-
-        return np.NaN
-    try:
-        hour, mn, sec = x.split(":")
-    except Exception as e:
-        print(f'Cannot process "{x}"')
-        raise (e)
-    return int(hour) * 3600 + int(mn) * 60 + int(sec)
-
-
-# Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM and $30\,min \le \text{EXAMTM}-\text{PDMEDTM} < 6\,hours$:
-
-# In[ ]:
-
-
-len(
-    df[
-        case_3
-        & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) >= 1800)
-        & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) < 6 * 3600)
-    ]
-)
-
-
-# Let's set PDSTATE=ON for these records.
-
-# In[ ]:
-
-
-df.loc[
-    case_3
-    & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) >= 1800)
-    & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) < 6 * 3600),
-    "PDSTATE",
-] = "ON"
-
-
-# Updated records distribution:
-
-# In[ ]:
-
-
-df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# In[ ]:
-
-
-case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
-
-
-# Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM and $\text{EXAMTM-PDMEDTM} < 30\,min$:
-
-# In[ ]:
-
-
-len(
-    df[
-        case_3
-        & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) < 1800)
-        & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) >= 0)
-    ]
-)
-
-
-# Let's discard these records:
-
-# In[ ]:
-
-
-df.drop(
-    df[
-        case_3
-        & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) < 1800)
-        & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) >= 0)
-    ].index,
-    inplace=True,
-)
-
-
-# Updated records distribution:
-
-# In[ ]:
-
-
-df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# In[ ]:
-
-
-case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
-
-
-# Number of records in case 3.b where PDMEDTM is earlier or equal to EXAMTM and $\text{EXAMTM-PDMEDTM} \ge 6\,hours$:
-
-# In[ ]:
-
-
-len(
-    df[
-        case_3
-        & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) >= 6 * 3600)
-    ]
-)
-
-
-# Let's set PDSTATE=OFF for these records.
-
-# In[ ]:
-
-
-df.loc[
-    case_3 & (df["EXAMTM"].apply(to_secs) - df["PDMEDTM"].apply(to_secs) >= 6 * 3600),
-    "PDSTATE",
-] = "OFF"
-
-
-# Updated records distribution:
-
-# In[ ]:
-
-
-df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# ### Case 3.b.iii: PDMEDTM is later than EXAMTM
-
-# Number of records in case 3.b where PDMEDTM is later than EXAMTM:
-
-# In[ ]:
-
-
-case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
-len(df[case_3 & (df["PDMEDTM"] > df["EXAMTM"])])
-
-
-# #### Case 3.b.iii.a: PDMEDTM is after 4pm
-
-# Some of records have a PDMEDTIME which likely belongs to the previous day but there is no way to confirm it because dates only include a month, a year, but no day. Looking at the distribution of exam times in such cases, we noticed that no exam took place after 4pm, which motivates the use of 4pm as cut-off time.
-
-# Distribution of EXAM times when $\text{PDMEDTM} > \text{EXAMTM}$:
-
-# In[ ]:
-
-
-import numpy as np
-
-pd.to_datetime(
-    df[case_3 & (df["PDMEDTM"].apply(to_secs) > df["EXAMTM"].apply(to_secs))]["EXAMTM"]
-).dt.hour.hist(bins=np.arange(24))
-plt.xlabel("Hour of the day")
-plt.ylabel("Number of EXAMTM records");
-
-
-# Number of records in case 3 where PDMEDTM is after EXAMTM and PDMEDTM is after 4pm:
-
-# In[ ]:
-
-
-len(
-    df[
-        case_3
-        & (df["PDMEDTM"].apply(to_secs) > df["EXAMTM"].apply(to_secs))
-        & (df["PDMEDTM"] > "16:00:00")
-    ]
-)
-
-
-# Let's set PDSTATE=OFF for these records:
-
-# In[ ]:
-
-
-df.loc[
-    case_3
-    & (df["PDMEDTM"].apply(to_secs) > df["EXAMTM"].apply(to_secs))
-    & (df["PDMEDTM"] > "16:00:00"),
-    "PDSTATE",
-] = "OFF"
-
-
-# Updated records distribution:
-
-# In[ ]:
-
-
-df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# In[ ]:
-
-
-case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
-
-
-# #### Case 3.b.iii.a: PDMEDTM is before 4pm
-
-# Number of records in case 3 where PDMEDTM is later than EXAMTM and PDMEDTM is before 4pm:
-
-# In[ ]:
-
-
-len(df[case_3 & (df["EXAMTM"].apply(to_secs) < df["PDMEDTM"].apply(to_secs))])
-
-
-# Let's remove these records. 
-
-# In[ ]:
-
-
-df.drop(
-    df[case_3 & (df["EXAMTM"].apply(to_secs) < df["PDMEDTM"].apply(to_secs))].index,
-    inplace=True,
-)
-
-
-# In[ ]:
-
-
-case_3 = (df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 1)
-
-
-# Let's verify that case 3 (PDSTATE=NaN, PDTRTMNT=1) is now resolved:
-
-# In[ ]:
-
-
-df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# ## Case 4: PDSTATE=NaN and PDTRTMNT=NaN
-# 
-# Similar to case 1, no record in case 4 has a medication date (PDMEDDT), a medication time (PDMEDTM), or
-# a DBS status (DBS_STATUS):
-
-# In[ ]:
-
-
-case_4 = df[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"].isnull())]
-case_4.groupby(
+case_3 = df[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"].isnull())]
+case_3.groupby(
     [
-        "PDMEDDT",
-        "PDMEDTM",
-        "DBS_STATUS",
+        "OFFPDMEDDT",
+        "OFFPDMEDTM",
+        "ONPDMEDDT",
+        "ONPDMEDTM",
+        "DBSYN",
         "HRPOSTMED",
         "DBSONTM",
         "DBSOFFTM",
@@ -835,12 +397,12 @@ case_4.groupby(
 
 
 # <div class="alert alert-block alert-success">
-#     	&#10003; <b>Proposed solution</b>: set PDSTATE=OFF and PDTRTMNT=0. It is very unlikely that the patient was medicated and none of the 8 medication-related variables were set.
+#     	&#10003; <b>Proposed solution</b>: set PDSTATE=OFF and PDTRTMNT=0. It is very unlikely that the patient was medicated and none of the medication-related variables were set.
 # </div>
 
 # ⚙️ Implementation
 
-# In[ ]:
+# In[26]:
 
 
 df_1 = df.copy()
@@ -849,32 +411,9 @@ df_1.loc[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"].isnull()), "PDTRTMNT"] = 0
 df = df_1
 
 
-# Let's verify that case 4 is now resolved:
+# Let's verify that case 3 is now resolved:
 
-# In[ ]:
-
-
-df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
-
-
-# ## Case 5: PDSTATE=ON and PDTRTMNT=NaN
-# 
-# 
-# <div class="alert alert-block alert-success">
-#     	&#10003; <b>Proposed correction</b>: set PDTRTMNT=1. The patient is medicated since PDSTATE=ON.
-# </div>
-
-# ⚙️ Implementation
-
-# In[ ]:
-
-
-df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"].isnull()), "PDTRTMNT"] = 1
-
-
-# Let's verify that case 5 is now resolved:
-
-# In[ ]:
+# In[27]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -884,11 +423,11 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # 
 # Let's save the cleaned file:
 
-# In[ ]:
+# In[28]:
 
 
 filename = "MDS_UPDRS_Part_III_clean.csv"
-df.to_csv(op.join(data_dir, filename), index=False)
+df.to_csv(os.path.join(utils.study_files_dir, filename), index=False)
 print(f"Cleaned file saved in {filename}")
 
 
@@ -898,7 +437,7 @@ print(f"Cleaned file saved in {filename}")
 
 # **IF** visit has two exam **THEN** one is ON and the other one is OFF:
 
-# In[ ]:
+# In[29]:
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) == 2)
@@ -907,20 +446,20 @@ a.groupby(["PATNO", "EVENT_ID"]).filter(
 ).empty
 
 
-# **IF** PDSTATE=ON **THEN** EXAMTM>PDMEDTM
+# **IF** PDSTATE=ON **THEN** ONEXAMTM>ONPDMEDTM
 
-# In[ ]:
+# In[30]:
 
 
 df[
     (df["PDSTATE"] == "ON")
-    & (df["EXAMTM"].apply(to_secs) < df["PDMEDTM"].apply(to_secs))
+    & (df["ONEXAMTM"].apply(to_secs) < df["ONPDMEDTM"].apply(to_secs))
 ].empty
 
 
-# **IF** PDTRTMNT=0 **THEN** there is a single visit and PDSTATE=off
+# **IF** PDTRTMNT=0 **THEN** there is a single visit and PDSTATE=OFF
 
-# In[ ]:
+# In[31]:
 
 
 assert (
@@ -940,7 +479,7 @@ print("True")
 
 # A patient cannot become unmedicated after being medicated:
 
-# In[ ]:
+# In[32]:
 
 
 def wrong_pairs(x):
@@ -966,36 +505,4 @@ def wrong_pairs(x):
 df.groupby(["PATNO"]).filter(lambda x: x["PDTRTMNT"].nunique() > 1).groupby(
     "PATNO"
 ).filter(wrong_pairs).empty
-
-
-# In[ ]:
-
-
-# off = (df['PDSTATE']=='OFF') & (df['PDMEDTM']<='16:00:00')
-# df['EXAMsecs'] = df[off]['EXAMTM'].apply(to_secs)
-# df['PDMEDTMsecs'] = df[off]['PDMEDTM'].apply(to_secs)
-
-# df[off & (df['EXAMsecs']-df['PDMEDTMsecs']>=0) & (df['EXAMsecs']-df['PDMEDTMsecs']<6*3600)]
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-# off = (df['PDSTATE']=='OFF') & (df['PDMEDTM']<='16:00:00')
-# df['EXAMsecs'] = df[off]['EXAMTM'].apply(to_secs)
-# df['PDMEDTMsecs'] = df[off]['PDMEDTM'].apply(to_secs)
-
-# df[off & (df['EXAMsecs']-df['PDMEDTMsecs']>=0) & (df['EXAMsecs']-df['PDMEDTMsecs']<6*3600)]
-
-
-# In[ ]:
-
-
-
 
