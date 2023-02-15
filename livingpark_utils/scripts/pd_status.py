@@ -92,7 +92,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 errors = df[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0)]
 # print the time difference between EXAMTM and PDMEDTM
-#(pd.to_datetime(errors["ONEXAMTM"]) - pd.to_datetime(errors["ONPDMEDTM"]))
+# (pd.to_datetime(errors["ONEXAMTM"]) - pd.to_datetime(errors["ONPDMEDTM"]))
 
 
 # <div class="alert alert-block alert-success">
@@ -233,7 +233,9 @@ HTML(pb_trunc.to_html(index=False))
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
-index = (a[(a["PDSTATE"].isnull()) & (a["ONEXAMTM"].isnull()) & (a["OFFEXAMTM"].isnull())]).index
+index = (
+    a[(a["PDSTATE"].isnull()) & (a["ONEXAMTM"].isnull()) & (a["OFFEXAMTM"].isnull())]
+).index
 
 before_len = len(df)
 df = df[~df.index.isin(index)]
@@ -261,7 +263,7 @@ len(pb)
 
 
 before_len = len(df)
-df = df[~df.drop(["REC_ID"], axis=1).duplicated(keep='first')]
+df = df[~df.drop(["REC_ID"], axis=1).duplicated(keep="first")]
 print(f"Number of removed records: {before_len-len(df)}")
 
 
@@ -284,7 +286,7 @@ pb[["EVENT_ID", "PDSTATE", "HRPOSTMED", "OFFPDMEDDT", "OFFPDMEDTM"]]
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
-index = (a[(a["HRPOSTMED"].isnull()) & (a["PDSTATE"] == 'OFF')]).index
+index = (a[(a["HRPOSTMED"].isnull()) & (a["PDSTATE"] == "OFF")]).index
 
 before_len = len(df)
 df = df[~df.index.isin(index)]
@@ -359,7 +361,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # In[23]:
 
 
-df = df[~(df['PDSTATE'].isnull()) | (df['PDTRTMNT']!=1)]
+df = df[~(df["PDSTATE"].isnull()) | (df["PDTRTMNT"] != 1)]
 
 
 # Updated records distribution:
