@@ -1,5 +1,6 @@
 """Downloader for the ppmi dataset."""
 import os.path
+import traceback
 
 import pandas as pd
 import ppmi_downloader
@@ -61,8 +62,8 @@ class Downloader(DownloaderABC):
                 destination_dir=self.out_dir,
                 timeout=timeout,
             )
-        except Exception as e:
-            print(e)
+        except Exception:
+            print(traceback.format_exc())
             missing = self.missing_study_files(query)
             success = list(set(query) - set(missing))
             return success, missing
@@ -124,15 +125,15 @@ class Downloader(DownloaderABC):
         cohort = query
         missing_patno = cohort["PATNO"]
         try:
-            ppmi_dl = ppmi_downloader.PPMIDownloader()
+            ppmi_dl = ppmi_downloader.PPMIDownloader(headless=self.headless)
             print(f"Downloading image data of {missing_patno.nunique()} subjects")
             ppmi_dl.download_imaging_data(
                 missing_patno.unique(),
                 type="nifti",
                 timeout=timeout * missing_patno.nunique(),
-                headless=self.headless,
             )
         except Exception:
+            print(traceback.format_exc())
             missing = self.missing_T1_nifti_files(query)
             success = query[~query["PATNO"].isin(missing["PATNO"])]
             return success, missing
