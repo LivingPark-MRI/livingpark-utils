@@ -95,6 +95,7 @@ class LivingParkUtils:
         default: DownloaderABC,
         force: bool = False,
         timeout: int = 600,
+        **kwargs,
     ) -> None:
         """Download the required study files, using a given downloader.
 
@@ -115,7 +116,7 @@ class LivingParkUtils:
             print("Download skipped: No missing files!")
         else:
             pprint(f"Downloading files: {missing}")
-            _, missing = default.get_study_files(missing, timeout=timeout)
+            _, missing = default.get_study_files(missing, timeout=timeout, **kwargs)
 
             if len(missing) > 0:
                 pprint(f"Missing files: {missing}")
@@ -131,6 +132,7 @@ class LivingParkUtils:
         force: bool = False,
         timeout: int = 120,
         fallback: DownloaderABC = None,
+        **kwargs,
     ) -> None:
         """Download the required T1 NIfTI files, using a given downloader.
 
@@ -157,12 +159,12 @@ class LivingParkUtils:
             return print("Download skipped: No missing files!")
         else:
             _, missing = default.get_T1_nifti_files(
-                missing, symlink=symlink, timeout=timeout
+                missing, symlink=symlink, timeout=timeout, **kwargs
             )
 
             if len(missing) > 0 and fallback:
                 _, missing = fallback.get_T1_nifti_files(
-                    missing, symlink=symlink, timeout=timeout
+                    missing, symlink=symlink, timeout=timeout, **kwargs
                 )
                 if len(missing) > 0:
                     with open("install_nifti.log") as fout:

@@ -1,5 +1,6 @@
 """Provide utilies to work with the PPMI dataset."""
 import glob
+import logging
 import os.path
 from pprint import pprint
 
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 from dateutil.parser import parse  # type: ignore
 from dateutil.relativedelta import relativedelta  # type: ignore
+from ppmi_downloader import fileMatchingError
 
 from ..download import ppmi
 
@@ -83,7 +85,15 @@ def clean_protocol_description(desc: str) -> str:
     str
         Protocol description. Example: "MPRAGE GRAPPA"
     """
-    return desc.replace(" ", "_").replace("(", "_").replace(")", "_").replace("/", "_")
+    return (
+        desc.strip()
+        .replace(" ", "_")
+        .replace("(", "_")
+        .replace(")", "_")
+        .replace("/", "_")
+        .replace("__", "_")
+        .strip("_")
+    )
 
 
 def find_nifti_file_in_cache(
@@ -122,24 +132,18 @@ def find_nifti_file_in_cache(
         f"sub-{subject_id}",
         f"ses-{event_id}",
         "anat",
-        f"PPMI_*{clean_protocol_description(protocol_description)}*.nii",
+        f"PPMI_*{clean_protocol_description(protocol_description)}_br_raw_*.nii",
     )
     files = glob.glob(expression)
-    assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
-    if len(files) == 1:
-        return files[0]
-
-    expression = os.path.join(
-        cache_dir,
-        base_dir,
-        f"sub-{subject_id}",
-        f"ses-{event_id}",
-        "anat",
-        "PPMI_*.nii",
-    )
-    files = glob.glob(expression)
-    assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
-    if len(files) == 1:
+    if len(files) > 1:
+        logging.warning(
+            f"""More than 1 Nifti file matched by {expression}
+{subject_id=}
+{event_id=}
+protocol_description={clean_protocol_description(protocol_description)}
+"""
+        )
+    elif len(files) == 1:
         return files[0]
 
     return ""
