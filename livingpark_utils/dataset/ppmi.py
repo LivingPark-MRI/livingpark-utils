@@ -3,6 +3,7 @@ import glob
 import logging
 import os.path
 from pprint import pprint
+import re
 
 import numpy as np
 import pandas as pd
@@ -85,15 +86,12 @@ def clean_protocol_description(desc: str) -> str:
     str
         Protocol description. Example: "MPRAGE GRAPPA"
     """
-    return (
-        desc.strip()
-        .replace(" ", "_")
-        .replace("(", "_")
-        .replace(")", "_")
-        .replace("/", "_")
-        .replace("__", "_")
-        .strip("_")
-    )
+    return re.sub(
+        r"_+",
+        "_",
+        re.sub(r"[\s()/-]", "_", desc)
+    ).strip("_")
+    
 
 
 def find_nifti_file_in_cache(
