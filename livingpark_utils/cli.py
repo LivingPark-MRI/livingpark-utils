@@ -50,7 +50,7 @@ def import_from(module: str, name: str) -> Any:
     "--batch-size",
     type=int,
     default=50,
-    help="Number of file to download in each batch."
+    help="Number of file to download in each batch.",
 )
 @click.argument(
     "cohort_file", type=click.Path(exists=True, file_okay=True, readable=True)

@@ -1,30 +1,49 @@
 """Downloader for the ppmi dataset."""
 import logging
 import os.path
-from pathlib import Path
 import traceback
-from urllib3.connectionpool import ReadTimeoutError
+from typing import Iterator
+from typing import Sequence
+from typing import TypeVar
 
 import pandas as pd
 import ppmi_downloader
 from ppmi_downloader import fileMatchingError
+from urllib3.connectionpool import ReadTimeoutError
 
 from .DownloaderABC import DownloaderABC
 from livingpark_utils.dataset import ppmi
 
 
 log_file = "livingpark_utils-ppmiDownloader.log"
-logging.Formatter(fmt='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
+logging.Formatter(fmt="%(asctime)s - %(message)s", datefmt="%d-%b-%y %H:%M:%S")
 fh = logging.FileHandler(log_file)
 fh.setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 logger.addHandler(fh)
 
 
-def batched(iterable, *, n):
-    l = len(iterable)
-    for ndx in range(0, l, n):
-        yield iterable[ndx : min(ndx + n, l)]
+T = TypeVar("T")
+
+
+def batched(iterable: Sequence[T], *, n: int) -> Iterator[Sequence[T]]:
+    """Segment the `iterable` into `n` batches.
+
+    Parameters
+    ----------
+    iterable : _type_
+        _description_
+    n : int
+        Number of batches.
+
+    Yields
+    ------
+    _type_
+        _description_
+    """
+    length = len(iterable)
+    for ndx in range(0, length, n):
+        yield iterable[ndx : min(ndx + n, length)]
 
 
 class Downloader(DownloaderABC):
@@ -232,7 +251,8 @@ class Downloader(DownloaderABC):
                 elif not os.path.exists(filename):
                     if debug:
                         print(
-                            f"Error: File not found, possibly due to a failed download: {filename}"
+                            "Error: File not found."
+                            f"Possibly due to a failed download: {filename}"
                         )
                 else:  # copy file to dataset
                     dest_dir = os.path.join(
@@ -253,7 +273,8 @@ class Downloader(DownloaderABC):
 
         if debug and failures > 0:
             print(
-                f"Failed to downloaded {failures} files. See {log_file} for more details"
+                f"Failed to downloaded {failures} files."
+                f"See {log_file} for more details."
             )
 
         # Update file names in cohort
