@@ -1,4 +1,5 @@
 """Provide utilies to work with the PPMI dataset."""
+import datetime
 import glob
 import os.path
 from pprint import pprint
@@ -33,8 +34,23 @@ def cohort_id(cohort: pd.DataFrame) -> str:
     return str(hash(tuple(sorted(cohort["PATNO"])))).replace("-", "_")
 
 
-def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFrame:
+def disease_duration(
+    study_data_dir: str,
+    *,
+    force: bool = False,
+    _minimal=True,
+) -> pd.DataFrame:
     """Return a DataFrame containing disease durations.
+
+    Parameters
+    ----------
+    study_data_dir: str
+        Directory path containing the study files.
+    force: bool
+        Whether the download for PD history and UPDRS III should be forced,
+        by default False.
+    _minimal: bool
+        Whether the extras dataframe columns are dropped, by default True.
 
     Returns
     -------
@@ -42,6 +58,25 @@ def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFram
         DataFrame containing disease durations for each (patient,event) pair found
         in "MDS_UPDRS_Part_III.csv".
     """
+
+    def abs_month_diff(x: datetime.datetime, y: datetime.datetime, /) -> int:
+        """Return the absolute month difference between two dates.
+
+        Parameters
+        ----------
+        x : datetime.datetime
+            First date.
+        y : datetime.datetime
+            Second date.
+
+        Returns
+        -------
+        int
+            Absolute month difference.
+        """
+        delta = relativedelta(x, y)
+        return abs(delta.years * 12) + abs(delta.months)
+
     ppmi_downloader = ppmi.Downloader(study_data_dir)
     required_files = ["MDS_UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"]
 
@@ -65,12 +100,13 @@ def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFram
     pdxdur["PDDXDT"] = pdxdur["PATNO"].map(PDDXDT_map)
 
     pdxdur["PDXDUR"] = pdxdur.apply(
-        lambda row: relativedelta(parse(row["INFODT"]), parse(row["PDDXDT"])).months
+        lambda row: abs_month_diff(parse(row["INFODT"]), parse(row["PDDXDT"]))
         if row["PDDXDT"] is not np.nan
         else np.nan,
         axis=1,
     )
-    pdxdur.drop(labels=["INFODT", "PDDXDT"], inplace=True, axis=1)
+    if _minimal:
+        pdxdur.drop(labels=["INFODT", "PDDXDT"], inplace=True, axis=1)
 
     return pdxdur
 
