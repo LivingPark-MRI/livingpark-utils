@@ -46,6 +46,12 @@ def import_from(module: str, name: str) -> Any:
     default=120,
     help="Maximum duration before interrupting the download (per subject).",
 )
+@click.option(
+    "--batch-size",
+    type=int,
+    default=50,
+    help="Number of file to download in each batch.",
+)
 @click.argument(
     "cohort_file", type=click.Path(exists=True, file_okay=True, readable=True)
 )
@@ -54,6 +60,7 @@ def get_T1_nifti_files(
     symlink: bool,
     force: bool,
     timeout: int,
+    batch_size: int,
     cohort_file: str,
 ):
     r"""Download T1 nifti files from cohort csv file.
@@ -72,6 +79,8 @@ def get_T1_nifti_files(
         When `True`, all study files are reported missing locally., by default False.
     timeout : int
         Number of second before the download times out., by default 120.
+    batch_size : int
+        Number of files to download in each batch.
     cohort_file : str
         Path to the csv file containing the cohort definition.
     """
@@ -86,4 +95,5 @@ def get_T1_nifti_files(
         symlink=symlink,
         force=force,
         timeout=timeout,
+        batch_size=batch_size,
     )
