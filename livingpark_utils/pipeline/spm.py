@@ -23,7 +23,24 @@ pkg_root = Path(pkgutil.resolve_name("livingpark_utils").__path__[0])
 
 
 class SPM(PipelineABC):
+    """SPM functions and QC.
+
+    Parameters
+    ----------
+    PipelineABC
+        Abstract class for pipelines.
+    """
+
     def __init__(self, code_dir: str = "code", cache: str = ".cache") -> None:
+        """Initialize the `SPM` object.
+
+        Parameters
+        ----------
+        code_dir : str, optional
+            Path to directory to write SPM batch and job files , by default "code".
+        cache : str, optional
+            Path to directory containing the cached MRI images, by default ".cache".
+        """
         super().__init__()
         self.code_dir = code_dir
         self.cache = cache
@@ -772,7 +789,7 @@ class SPM(PipelineABC):
         time_diff: float,
         force: bool = False,
     ) -> boutiques.ExecutorOutput | None:
-        """_summary_
+        """Perform SPM pairwise registration on the `cohort`.
 
         Parameters
         ----------

@@ -183,6 +183,7 @@ class LivingParkUtils:
         replaced_keys: dict,
         executable_job_file_name: str,
     ) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
@@ -201,6 +202,7 @@ class LivingParkUtils:
         boutiques_descriptor: str = "zenodo.6881412",
         force: bool = False,
     ) -> boutiques.ExecutorOutput:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
@@ -221,6 +223,7 @@ class LivingParkUtils:
         image_prefix: str = "",
         pre_processing_dir: str = "pre_processing",
     ) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
@@ -246,6 +249,7 @@ class LivingParkUtils:
         force: bool = False,
         extension: str = "png",
     ) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
@@ -269,6 +273,7 @@ class LivingParkUtils:
         show_wm=True,
         cut_coords=(-28, -7, 17),
     ) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
@@ -281,9 +286,13 @@ class LivingParkUtils:
         )
 
     @deprecated(
-        extra="Moved to function `pipeline.spm::SPM::spm_compute_missing_segmentations`."
+        extra=(
+            "Moved to function"
+            "`pipeline.spm::SPM::spm_compute_missing_segmentations`."
+        )
     )
     def spm_compute_missing_segmentations(self, cohort: pd.DataFrame) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
@@ -293,15 +302,20 @@ class LivingParkUtils:
         extra="Moved to function `pipeline.spm::SPM::spm_compute_dartel_normalization`."
     )
     def spm_compute_dartel_normalization(self, cohort: pd.DataFrame) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
         spm.spm_compute_dartel_normalization(cohort)
 
     @deprecated(
-        extra="Moved to function `pipeline.spm::SPM::spm_compute_intra_cranial_volumes`."
+        extra=(
+            "Moved to function"
+            "`pipeline.spm::SPM::spm_compute_intra_cranial_volumes`."
+        )
     )
     def spm_compute_intra_cranial_volumes(self, cohort: pd.DataFrame) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
@@ -316,6 +330,7 @@ class LivingParkUtils:
         group2_patnos: list,
         icvs: dict,
     ) -> None:
+        # noqa
         from pipeline.spm import SPM
 
         spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
