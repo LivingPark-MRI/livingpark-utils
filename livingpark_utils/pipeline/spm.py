@@ -1,22 +1,21 @@
 """Utility function to run SPM pipelines."""
 import csv
 import glob
-import os
 import os.path
-from pathlib import Path
 import pkgutil
+from pathlib import Path
 from shutil import copyfile
 
 import boutiques
+import nilearn.plotting as nplt
+import pandas as pd
 from boutiques.descriptor2func import function as descriptor2func
 from IPython.display import Image as ImageDisplay
 from matplotlib import pyplot as plt
-import nilearn.plotting as nplt
-import pandas as pd
 
+from . import qc
 from ..dataset import ppmi
 from .exceptions import PipelineExecutionError
-from . import qc
 from .PipelineABC import PipelineABC
 
 
@@ -721,3 +720,154 @@ class SPM(PipelineABC):
         )
         output = self.run_spm_batch_file(stats_job_name)
         return output
+
+    def find_prefixed_img(
+        self,
+        folder: str,
+        *,
+        patno: int,
+        visit: str,
+        desc: str,
+        prefix: str = "",
+    ) -> Path | None:
+        """Find the NifTi image for a subject visit, with the given filename `prefix`.
+
+        Parameters
+        ----------
+        folder : str
+            Folder to search.
+        patno : int
+            Patient ID.
+        visit : str
+            Visit ID.
+        desc: str
+            Scan description.
+        prefix : str, optional
+            Prefix for the NifTi filename, by default "".
+
+        Returns
+        -------
+        Path | None
+            Return the `Path` to the prefixed filename, if it exist.
+            Otherwise, return `None`.
+        """
+        file_pattern = f"{prefix}PPMI*{desc.replace(' ', '_')}*.nii"
+        filename = glob.glob(
+            file_pattern,
+            root_dir=Path(folder, f"sub-{patno}", f"ses-{visit}", "anat").as_posix(),
+        )
+
+        if len(filename) > 1:
+            raise PipelineExecutionError(
+                f"Error: Expected at most one file with pattern: {file_pattern}."
+            )
+        elif len(filename) == 0:
+            return None
+
+        return Path(filename[0])
+
+    def pairwise_registration(
+        self,
+        cohort: pd.DataFrame,
+        time_diff: float,
+        force: bool = False,
+    ) -> boutiques.ExecutorOutput | None:
+        """_summary_
+
+        Parameters
+        ----------
+        cohort : pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO, EVENT_ID and Description.
+        time_diff : float
+            Number of years between the baseline and follow-up visit.
+        force: bool
+            Whether the preprocessing should be rerun when results already exist.
+
+        Returns
+        -------
+        boutiques.ExecutorOutput | None
+            Boutiques execution output of SPM batch.
+            None if no computation was required.
+        """
+        job_template = pkg_root.joinpath(
+            "templates",
+            "pairwise_registration_job.m",
+        ).as_posix()
+        job_name = (
+            Path()
+            .cwd()
+            .joinpath(
+                "code",
+                "batches",
+                f"pairwise_registration{ppmi.cohort_id(cohort)}_job.m",
+            )
+            .as_posix()
+        )
+
+        cohort["nifti_cache"] = cohort.apply(
+            lambda row: ppmi.find_nifti_file_in_cache(
+                row["PATNO"],
+                row["EVENT_ID"],
+                row["Description"],
+                base_dir=Path("outputs", "pre_processing").as_posix(),
+            ),
+            axis=1,
+        )
+
+        if any(cohort["nifti_cache"] == ""):
+            raise ValueError("Some visit data is missing for pre-processing.")
+
+        cohort["SPM_VOL"] = cohort["nifti_cache"].map(
+            lambda x: f"'{Path(x).absolute().as_posix()},1'"
+        )
+        baseline = cohort[cohort["MRI_ID"].str.endswith("_Baseline")].sort_values(
+            by=["PATNO"]
+        )
+        follow_up = cohort[cohort["MRI_ID"].str.endswith("_Follow-up")].sort_values(
+            by=["PATNO"]
+        )
+
+        dv_img = baseline.apply(
+            lambda row: self.find_prefixed_img(
+                "outputs",
+                patno=row["PATNO"],
+                visit=row["EVENT_ID"],
+                desc=row["Description"],
+                prefix="dv_",
+            ),
+            axis=1,
+        ).values
+
+        # Check for existing divergence rate images.
+        if force or not all(dv_img):
+            print(
+                "[INFO] New subjects detected.\n"
+                "       Recomputing SPM longitudinal pairwise registration."
+            )
+
+            # baseline and follow_up subjects must be in the same order.
+            if any(baseline["PATNO"].values != follow_up["PATNO"].values):
+                raise ValueError(
+                    "Mismatching order between baseline and follow-up subjects."
+                    "\nThis is most likely due to a missing subject visit."
+                )
+
+            VOLS_1 = os.linesep.join(baseline["SPM_VOL"].values)
+            VOLS_2 = os.linesep.join(follow_up["SPM_VOL"].values)
+
+            self.write_spm_batch_files(
+                job_template,
+                {"[VOLS_1]": VOLS_1, "[VOLS_2]": VOLS_2, "[TDIF]": str(time_diff)},
+                job_name,
+            )
+
+            output = self.run_spm_batch_file(
+                job_name, force=True, boutiques_descriptor="zenodo.7659044"
+            )
+
+            return output
+
+        else:
+            print("No new subject detected.")
+
+        return None
