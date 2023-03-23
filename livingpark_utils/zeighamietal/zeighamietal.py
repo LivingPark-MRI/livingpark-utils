@@ -272,34 +272,9 @@ def get_t1_cohort(
         & (df_t1_subset[COL_VISIT_TYPE] == VISIT_BASELINE)
     ]
 
-    # some subjects in the validation cohort have repeat scans on the same day
-    # these scans have the word "Repeat" in the description column
-    # we keep the repeat scan
-    subject_counts = df_t1_subset[COL_PAT_ID].value_counts()
-    duplicate_subjects = subject_counts.loc[subject_counts != 1].index
-    print(f"Removing extra scans for {len(duplicate_subjects)} subjects")
-    # print(df_t1_subset.loc[df_t1_subset[COL_PAT_ID].isin(duplicate_subjects)])
-
-    if cohort_name == VALIDATION_COHORT:
-        df_t1_subset = df_t1_subset.loc[
-            ~df_t1_subset[COL_PAT_ID].isin(duplicate_subjects)
-            | df_t1_subset["Description"].str.contains("Repeat")
-        ]
-    else:
-        # description of repeat scans
-        # ['AX 3D FSPGR straight brain lab',
-        #  'sag 3D FSPGR BRAVO straight']       -> keep sagittal
-        # ['T1W_3D_FFE COR', 'T1W_3D_FFE AX']   -> unsure which to keep
-        # ['MPRAGE GRAPPA_ND', 'MPRAGE GRAPPA'] -> unsure which to keep
-        df_t1_subset = df_t1_subset.loc[
-            (~df_t1_subset[COL_PAT_ID].isin(duplicate_subjects))
-            | (
-                (~df_t1_subset["Description"].str.contains("AX"))
-                & (~df_t1_subset["Description"].str.contains("_ND"))
-            )
-        ]
-
+    # drop duplicates
     if df_t1_subset[COL_PAT_ID].nunique() != len(df_t1_subset[COL_PAT_ID]):
-        raise RuntimeError(f"Duplicate subjects in {cohort_name} cohort")
+        print(f"Duplicate subjects in {cohort_name} cohort, arbitrarily dropping extra entries")
+    df_t1_subset = df_t1_subset.drop_duplicates(COL_PAT_ID)
 
     return df_t1_subset
