@@ -274,7 +274,10 @@ def get_t1_cohort(
 
     # drop duplicates
     if df_t1_subset[COL_PAT_ID].nunique() != len(df_t1_subset[COL_PAT_ID]):
-        print(f"Duplicate subjects in {cohort_name} cohort, arbitrarily dropping extra entries")
+        print(
+            f"Duplicate subjects in {cohort_name} cohort"
+            ", arbitrarily dropping extra entries"
+        )
     df_t1_subset = df_t1_subset.drop_duplicates(COL_PAT_ID)
 
     return df_t1_subset
