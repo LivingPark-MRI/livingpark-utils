@@ -78,13 +78,15 @@ def load_ppmi_csv(
     # convert IDA search results to the same format as other PPMI study files
     if from_ida_search:
         df_ppmi = df_ppmi.rename(columns=IDA_COLNAME_MAP)
-        df_ppmi[COL_PAT_ID] = pd.to_numeric(df_ppmi[COL_PAT_ID], errors="coerce")
 
         # convert visit code
         missing_keys = set(df_ppmi[COL_VISIT_TYPE]) - set(IDA_VISIT_MAP.keys())
         if len(missing_keys) != 0:
             raise RuntimeError(f"Missing keys in conversion map: {missing_keys}")
         df_ppmi[COL_VISIT_TYPE] = df_ppmi[COL_VISIT_TYPE].map(IDA_VISIT_MAP)
+
+    # conver subject IDs to strings
+    df_ppmi[COL_PAT_ID] = df_ppmi[COL_PAT_ID].astype(str)
 
     if convert_dates:
         df_ppmi = convert_date_cols(df_ppmi, **kwargs)
