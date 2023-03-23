@@ -12,7 +12,7 @@ FILENAME_UPDRS3 = "MDS-UPDRS_Part_III.csv"
 FILENAME_ADL = "Modified_Schwab___England_Activities_of_Daily_Living.csv"
 
 # other file names
-FILENAME_T1_INFO = "3D_T1_info_idaSearch.csv"
+FILENAME_T1_INFO = "MRI_info.csv"
 
 # useful column names
 COL_PAT_ID = "PATNO"

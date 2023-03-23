@@ -13,6 +13,7 @@ from .constants import COL_VISIT_TYPE
 from .constants import COLS_DATE
 from .constants import FIELD_STRENGTHS
 from .constants import FILENAME_PARTICIPANT_STATUS
+from .constants import FILENAME_T1_INFO
 from .constants import IDA_COLNAME_MAP
 from .constants import IDA_VISIT_MAP
 from .constants import MAIN_COHORT
@@ -189,7 +190,7 @@ def mean_impute(df: pd.DataFrame, cols: str | list) -> pd.DataFrame:
 
 def get_t1_cohort(
     utils: livingpark_utils.LivingParkUtils,
-    filename: str,
+    filename: str = FILENAME_T1_INFO,
     cohort_name: str = MAIN_COHORT,
     sagittal_only=True,
 ) -> pd.DataFrame:
@@ -200,8 +201,7 @@ def get_t1_cohort(
     utils : livingpark_utils.LivingParkUtils
         the notebook's LivingParkUtils instance
     filename : str
-        name of 3D T1 search result file.
-        This file will be downloaded if it doesn't exist
+        name of 3D T1 search result file, by default FILENAME_T1_INFO.
     cohort_name : str, optional
         must match MAIN_COHORT or VALIDATION_COHORT,
         by default value stored in MAIN_COHORT
@@ -235,11 +235,14 @@ def get_t1_cohort(
     dirname = utils.study_files_dir
     filepath = Path(dirname, filename)
 
-    # download and move file if it doesn't exist yet
+    # error if file doesn't exist yet
     if not filepath.exists():
-        downloader = PPMIDownloader()
-        filename_tmp = downloader.download_3D_T1_info(destination_dir=dirname)
-        Path(dirname, filename_tmp).rename(filepath)
+        raise FileNotFoundError(
+            f"{filepath} doesn't exist. "
+            "You need to run livingpark_utils.scripts.mri_metadata first"
+        )
+    else:
+        print(f'Using MRI info file: {filepath}')
 
     # load csv files
     df_t1 = load_ppmi_csv(utils, filename, from_ida_search=True)
