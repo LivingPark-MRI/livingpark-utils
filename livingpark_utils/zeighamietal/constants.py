@@ -8,7 +8,7 @@ FILENAME_MOCA = "Montreal_Cognitive_Assessment__MoCA_.csv"
 FILENAME_UPDRS1A = "MDS-UPDRS_Part_I.csv"
 FILENAME_UPDRS1B = "MDS-UPDRS_Part_I_Patient_Questionnaire.csv"  # patient questionnaire
 FILENAME_UPDRS2 = "MDS_UPDRS_Part_II__Patient_Questionnaire.csv"
-FILENAME_UPDRS3 = "MDS_UPDRS_Part_III.csv"
+FILENAME_UPDRS3 = "MDS-UPDRS_Part_III.csv"
 FILENAME_ADL = "Modified_Schwab___England_Activities_of_Daily_Living.csv"
 
 # other file names
@@ -54,7 +54,7 @@ COLS_PIGD_COMPONENTS_UPDRS3 = [
 ]
 COLS_PIGD_COMPONENTS = COLS_PIGD_COMPONENTS_UPDRS2 + COLS_PIGD_COMPONENTS_UPDRS3
 COL_GCO = "GCO"  # global composite outcome
-COLS_SCORES_WITHOUT_GCO = [COL_UPDRS2, COL_UPDRS3, COL_ADL, COL_PIGD, COL_MOCA]
+COLS_SCORES_WITHOUT_GCO = [COL_UPDRS1, COL_UPDRS2, COL_UPDRS3, COL_ADL, COL_MOCA]
 COLS_SCORES = COLS_SCORES_WITHOUT_GCO + [COL_GCO]
 COL_FOLLOWUP = "is_followup"
 COL_IMAGING_PROTOCOL = "Imaging Protocol"  # from IDA search results
@@ -87,6 +87,7 @@ IDA_COLNAME_MAP = {
 IDA_VISIT_MAP = {
     "Baseline": VISIT_BASELINE,
     "Screening": VISIT_SCREENING,
+    "Month 6": "V02",
     "Month 12": "V04",
     "Month 24": "V06",
     "Month 36": "V08",
