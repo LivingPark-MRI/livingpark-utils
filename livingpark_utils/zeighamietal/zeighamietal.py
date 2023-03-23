@@ -2,7 +2,6 @@
 from pathlib import Path
 
 import pandas as pd
-from ppmi_downloader import PPMIDownloader
 
 from .. import livingpark_utils
 from .constants import COL_DATE_INFO
@@ -242,7 +241,7 @@ def get_t1_cohort(
             "You need to run livingpark_utils.scripts.mri_metadata first"
         )
     else:
-        print(f'Using MRI info file: {filepath}')
+        print(f"Using MRI info file: {filepath}")
 
     # load csv files
     df_t1 = load_ppmi_csv(utils, filename, from_ida_search=True)
