@@ -1,6 +1,9 @@
 """Provide utilies to work with the PPMI dataset."""
+import datetime
 import glob
+import logging
 import os.path
+import re
 from pprint import pprint
 
 import numpy as np
@@ -33,8 +36,23 @@ def cohort_id(cohort: pd.DataFrame) -> str:
     return str(hash(tuple(sorted(cohort["PATNO"])))).replace("-", "_")
 
 
-def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFrame:
+def disease_duration(
+    study_data_dir: str,
+    *,
+    force: bool = False,
+    _minimal=True,
+) -> pd.DataFrame:
     """Return a DataFrame containing disease durations.
+
+    Parameters
+    ----------
+    study_data_dir: str
+        Directory path containing the study files.
+    force: bool
+        Whether the download for PD history and UPDRS III should be forced,
+        by default False.
+    _minimal: bool
+        Whether the extras dataframe columns are dropped, by default True.
 
     Returns
     -------
@@ -42,6 +60,25 @@ def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFram
         DataFrame containing disease durations for each (patient,event) pair found
         in "MDS_UPDRS_Part_III.csv".
     """
+
+    def abs_month_diff(x: datetime.datetime, y: datetime.datetime, /) -> int:
+        """Return the absolute month difference between two dates.
+
+        Parameters
+        ----------
+        x : datetime.datetime
+            First date.
+        y : datetime.datetime
+            Second date.
+
+        Returns
+        -------
+        int
+            Absolute month difference.
+        """
+        delta = relativedelta(x, y)
+        return abs(delta.years * 12) + abs(delta.months)
+
     ppmi_downloader = ppmi.Downloader(study_data_dir)
     required_files = ["MDS_UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"]
 
@@ -65,12 +102,13 @@ def disease_duration(study_data_dir: str, *, force: bool = False) -> pd.DataFram
     pdxdur["PDDXDT"] = pdxdur["PATNO"].map(PDDXDT_map)
 
     pdxdur["PDXDUR"] = pdxdur.apply(
-        lambda row: relativedelta(parse(row["INFODT"]), parse(row["PDDXDT"])).months
+        lambda row: abs_month_diff(parse(row["INFODT"]), parse(row["PDDXDT"]))
         if row["PDDXDT"] is not np.nan
         else np.nan,
         axis=1,
     )
-    pdxdur.drop(labels=["INFODT", "PDDXDT"], inplace=True, axis=1)
+    if _minimal:
+        pdxdur.drop(labels=["INFODT", "PDDXDT"], inplace=True, axis=1)
 
     return pdxdur
 
@@ -83,7 +121,7 @@ def clean_protocol_description(desc: str) -> str:
     str
         Protocol description. Example: "MPRAGE GRAPPA"
     """
-    return desc.replace(" ", "_").replace("(", "_").replace(")", "_").replace("/", "_")
+    return re.sub(r"_+", "_", re.sub(r"[\s()/-]", "_", desc)).strip("_")
 
 
 def find_nifti_file_in_cache(
@@ -122,24 +160,27 @@ def find_nifti_file_in_cache(
         f"sub-{subject_id}",
         f"ses-{event_id}",
         "anat",
-        f"PPMI_*{clean_protocol_description(protocol_description)}*.nii",
+        f"PPMI_*{clean_protocol_description(protocol_description)}_br_raw_*.nii",
     )
     files = glob.glob(expression)
-    assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
-    if len(files) == 1:
+    if len(files) > 1:
+        logging.warning(
+            f"""More than 1 Nifti file matched by {expression}
+{subject_id=}
+{event_id=}
+protocol_description={clean_protocol_description(protocol_description)}
+"""
+        )
+    elif len(files) == 1:
         return files[0]
 
-    expression = os.path.join(
-        cache_dir,
-        base_dir,
-        f"sub-{subject_id}",
-        f"ses-{event_id}",
-        "anat",
-        "PPMI_*.nii",
+    raise NiftiFileNotFoundError(
+        f"Subject: {subject_id}, Event: {event_id}, "
+        f"Protocol description: {protocol_description}, Expression: {expression}"
     )
-    files = glob.glob(expression)
-    assert len(files) <= 1, f"More than 1 Nifti file matched by {expression}"
-    if len(files) == 1:
-        return files[0]
 
-    return ""
+
+class NiftiFileNotFoundError(Exception):
+    """An exception class for nifti file not found errors."""
+
+    pass
