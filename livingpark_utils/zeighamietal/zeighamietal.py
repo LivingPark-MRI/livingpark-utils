@@ -85,8 +85,14 @@ def load_ppmi_csv(
             raise RuntimeError(f"Missing keys in conversion map: {missing_keys}")
         df_ppmi[COL_VISIT_TYPE] = df_ppmi[COL_VISIT_TYPE].map(IDA_VISIT_MAP)
 
-    # conver subject IDs to strings
-    df_ppmi[COL_PAT_ID] = df_ppmi[COL_PAT_ID].astype(str)
+    # convert subject IDs to integers
+    # IDs should be all integers to be consistent
+    # if they are strings the cohort_ID hash can change even if the strings are the same
+    df_ppmi[COL_PAT_ID] = pd.to_numeric(df_ppmi[COL_PAT_ID], errors='coerce')
+    invalid_subjects = df_ppmi.loc[df_ppmi[COL_PAT_ID].isna(), COL_PAT_ID].to_list()
+    if len(invalid_subjects) > 0:
+        print(f'Dropping {len(invalid_subjects)} subjects with non-integer IDs: {invalid_subjects}')
+        df_ppmi = df_ppmi.loc[~df_ppmi[COL_PAT_ID].isin(invalid_subjects)]
 
     if convert_dates:
         df_ppmi = convert_date_cols(df_ppmi, **kwargs)
