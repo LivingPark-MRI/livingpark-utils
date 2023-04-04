@@ -436,19 +436,28 @@ class SPM(PipelineABC):
             )
         )
 
-        image_files = sorted(
-            os.path.abspath(
-                ppmi.find_nifti_file_in_cache(
-                    row["PATNO"],
-                    row["EVENT_ID"],
-                    row["Description"],
-                    base_dir=os.path.join("outputs", "pre_processing"),
-                )
+        cohort["nifti_cache"] = cohort.apply(
+            lambda row: ppmi.find_nifti_file_in_cache(
+                row["PATNO"],
+                row["EVENT_ID"],
+                row["Description"],
+                base_dir=Path("outputs", "pre_processing").as_posix(),
+            ),
+            axis=1,
+        )
+
+        if any(cohort["nifti_cache"] == ""):
+            raise ValueError(
+                "Some visit data is missing for pre-processing."
+                '\nSee "nifti_cache" column for missing data.'
             )
-            for index, row in cohort.iterrows()
+
+        image_files = sorted(
+            os.path.abspath(row["nifti_cache"])
+            for _, row in cohort.iterrows()
             if (  # segmentation doesn't exist
                 self.find_tissue_image_in_cache(1, row["PATNO"], row["EVENT_ID"]) == ""
-                and self.find_tissue_image_in_cache(2, row["PATNO"], row["EVENT_ID"])
+                or self.find_tissue_image_in_cache(2, row["PATNO"], row["EVENT_ID"])
                 == ""
             )
         )
@@ -601,17 +610,23 @@ class SPM(PipelineABC):
             )
         )
 
-        image_files = sorted(
-            os.path.abspath(
-                ppmi.find_nifti_file_in_cache(
-                    row["PATNO"],
-                    row["EVENT_ID"],
-                    row["Description"],
-                    base_dir=os.path.join("outputs", "pre_processing"),
-                )
-            )
-            for index, row in cohort.iterrows()
+        cohort["nifti_cache"] = cohort.apply(
+            lambda row: ppmi.find_nifti_file_in_cache(
+                row["PATNO"],
+                row["EVENT_ID"],
+                row["Description"],
+                base_dir=Path("outputs", "pre_processing").as_posix(),
+            ),
+            axis=1,
         )
+
+        if any(cohort["nifti_cache"] == ""):
+            raise ValueError(
+                "Some visit data is missing for pre-processing."
+                '\nSee "nifti_cache" column for missing data.'
+            )
+
+        image_files = sorted(cohort["nifti_cache"].apply(os.path.abspath).values)
 
         segmentation_files = sorted(
             x.replace(".nii", "_seg8.mat").replace(",1", "") for x in image_files
@@ -832,7 +847,10 @@ class SPM(PipelineABC):
         )
 
         if any(cohort["nifti_cache"] == ""):
-            raise ValueError("Some visit data is missing for pre-processing.")
+            raise ValueError(
+                "Some visit data is missing for pre-processing."
+                '\nSee "nifti_cache" column for missing data.'
+            )
 
         cohort["SPM_VOL"] = cohort["nifti_cache"].map(
             lambda x: f"'{Path(x).absolute().as_posix()},1'"

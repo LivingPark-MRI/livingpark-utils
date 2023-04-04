@@ -171,6 +171,7 @@ def find_nifti_file_in_cache(
 protocol_description={clean_protocol_description(protocol_description)}
 """
         )
+        return ""
     elif len(files) == 1:
         return files[0]
 
