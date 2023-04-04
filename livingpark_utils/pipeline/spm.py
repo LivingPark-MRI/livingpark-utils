@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 
 from . import qc
 from ..dataset import ppmi
+from ..dataset.ppmi import clean_protocol_description
 from .exceptions import PipelineExecutionError
 from .PipelineABC import PipelineABC
 
@@ -783,10 +784,11 @@ class SPM(PipelineABC):
             Return the `Path` to the prefixed filename, if it exist.
             Otherwise, return `None`.
         """
-        file_pattern = f"{prefix}PPMI*{desc.replace(' ', '_')}*.nii"
+        root_dir = Path(folder, f"sub-{patno}", f"ses-{visit}", "anat")
+        file_pattern = f"{prefix}PPMI_*{clean_protocol_description(desc)}_br_raw_*.nii"
         filename = glob.glob(
             file_pattern,
-            root_dir=Path(folder, f"sub-{patno}", f"ses-{visit}", "anat").as_posix(),
+            root_dir=root_dir.as_posix(),
         )
 
         if len(filename) > 1:
@@ -796,7 +798,7 @@ class SPM(PipelineABC):
         elif len(filename) == 0:
             return None
 
-        return Path(filename[0])
+        return Path(root_dir.joinpath(filename[0]))
 
     def pairwise_registration(
         self,
@@ -864,7 +866,7 @@ class SPM(PipelineABC):
 
         dv_img = baseline.apply(
             lambda row: self.find_prefixed_img(
-                "outputs",
+                Path.cwd().joinpath("outputs", "pre_processing").as_posix(),
                 patno=row["PATNO"],
                 visit=row["EVENT_ID"],
                 desc=row["Description"],
@@ -900,6 +902,147 @@ class SPM(PipelineABC):
                 job_name, force=True, boutiques_descriptor="zenodo.7659044"
             )
 
+            return output
+
+        else:
+            print("No new subject detected.")
+
+        return None
+
+    def spatial_normalization(
+        self,
+        subject: pd.Series,  # TODO confirm type
+        /,
+        align_img_prefix: str,
+        write_img_prefix: str,
+        force: bool = False,
+    ) -> boutiques.ExecutorOutput | None:
+        job_template = pkg_root.joinpath(
+            "templates",
+            "spatial_normalization_job.m",
+        ).as_posix()
+        job_name = (
+            Path()
+            .cwd()
+            .joinpath(
+                "code",
+                "batches",
+                f"spatial_normalization_{hash(subject['PATNO'])}_job.m",
+            )
+            .as_posix()
+        )
+
+        align_img = self.find_prefixed_img(
+            Path.cwd().joinpath("outputs", "pre_processing").as_posix(),
+            patno=subject["PATNO"],
+            visit=subject["EVENT_ID"],
+            desc=subject["Description"],
+            prefix=align_img_prefix,
+        )
+
+        write_img = self.find_prefixed_img(
+            Path.cwd().joinpath("outputs", "pre_processing").as_posix(),
+            patno=subject["PATNO"],
+            visit=subject["EVENT_ID"],
+            desc=subject["Description"],
+            prefix=write_img_prefix,
+        )
+
+        if align_img is None or write_img is None:
+            print(align_img, write_img)
+            raise ValueError("Some visit images are missing for pre-processing.")
+
+        norm_img = self.find_prefixed_img(
+            Path.cwd().joinpath("outputs", "pre_processing").as_posix(),
+            patno=subject["PATNO"],
+            visit=subject["EVENT_ID"],
+            desc=subject["Description"],
+            prefix=f"w{write_img_prefix}",
+        )
+        # Check for existing normalized images.
+        if force or not norm_img:
+            ALIGN_VOL = f"'{align_img.absolute().as_posix()},1'"
+            WRITE_VOL = f"'{write_img.absolute().as_posix()},1'"
+
+            self.write_spm_batch_files(
+                job_template,
+                {"[ALIGN_VOL]": ALIGN_VOL, "[WRITE_VOL]": WRITE_VOL},
+                job_name,
+            )
+
+            output = self.run_spm_batch_file(
+                job_name, force=True, boutiques_descriptor="zenodo.7659044"
+            )
+            return output
+
+        else:
+            print("No new subject detected.")
+
+        return None
+
+    def spatial_smoothing(
+        self,
+        cohort: pd.DataFrame,
+        /,
+        img_prefix: str,
+        force: bool = False,
+    ) -> boutiques.ExecutorOutput | None:
+        job_template = pkg_root.joinpath(
+            "templates",
+            "spatial_smoothing_job.m",
+        ).as_posix()
+        job_name = (
+            Path()
+            .cwd()
+            .joinpath(
+                "code",
+                "batches",
+                f"spatial_smoothing_{ppmi.cohort_id(cohort)}_job.m",
+            )
+            .as_posix()
+        )
+
+        imgs = cohort.apply(
+            lambda row: self.find_prefixed_img(
+                Path("outputs", "pre_processing").as_posix(),
+                patno=row["PATNO"],
+                visit=row["EVENT_ID"],
+                desc=row["Description"],
+                prefix=img_prefix,
+            ),
+            axis=1,
+        ).values
+
+        if any([img is None for img in imgs]):
+            raise ValueError("Some visit images are missing for pre-processing.")
+
+        smooth_imgs = cohort.apply(
+            lambda row: self.find_prefixed_img(
+                Path("outputs", "pre_processing").as_posix(),
+                patno=row["PATNO"],
+                visit=row["EVENT_ID"],
+                desc=row["Description"],
+                prefix=f"s{img_prefix}",
+            ),
+            axis=1,
+        ).values
+
+        # Check for existing normalized images.
+        if force or not all(smooth_imgs):
+            pass
+            VOLS = os.linesep.join(
+                [f"'{Path(img).absolute().as_posix()},1'" for img in imgs]
+            )
+
+            self.write_spm_batch_files(
+                job_template,
+                {"[VOLS]": VOLS},
+                job_name,
+            )
+
+            output = self.run_spm_batch_file(
+                job_name, force=True, boutiques_descriptor="zenodo.7659044"
+            )
             return output
 
         else:
