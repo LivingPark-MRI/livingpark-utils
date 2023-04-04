@@ -822,6 +822,11 @@ class SPM(PipelineABC):
         boutiques.ExecutorOutput | None
             Boutiques execution output of SPM batch.
             None if no computation was required.
+
+        Raises
+        ------
+        ValueError
+            When required files for preprocessing are missing.
         """
         job_template = pkg_root.joinpath(
             "templates",
@@ -917,6 +922,31 @@ class SPM(PipelineABC):
         write_img_prefix: str,
         force: bool = False,
     ) -> boutiques.ExecutorOutput | None:
+        """Execute SPM spatial normalization on a subject.
+
+        Parameters
+        ----------
+        subject : pd.Series
+            Subject to normalize.
+        align_img_prefix : str
+            File prefix of the image to align with the template.
+        write_img_prefix : str
+            File prefix of the image to normalize.
+        force : bool, optional
+            Whether the preprocessing should be rerun when results already exist,
+            by default False.
+
+        Returns
+        -------
+        boutiques.ExecutorOutput | None
+            Boutiques execution output of SPM batch.
+            None if no computation was required.
+
+        Raises
+        ------
+        ValueError
+            When required files for preprocessing are missing.
+        """
         job_template = pkg_root.joinpath(
             "templates",
             "spatial_normalization_job.m",
@@ -987,6 +1017,32 @@ class SPM(PipelineABC):
         img_prefix: str,
         force: bool = False,
     ) -> boutiques.ExecutorOutput | None:
+        """Execute SPM spatial smoothing for a cohort.
+
+        Parameters
+        ----------
+        cohort : pd.DataFrame
+            Cohort to perform spatial smoothing on.
+        img_prefix : str
+            File prefix for the image to smooth.
+        force : bool, optional
+            _description_, by default False
+
+        force : bool, optional
+            Whether the preprocessing should be rerun when results already exist,
+            by default False.
+
+        Returns
+        -------
+        boutiques.ExecutorOutput | None
+            Boutiques execution output of SPM batch.
+            None if no computation was required.
+
+        Raises
+        ------
+        ValueError
+            When required files for preprocessing are missing.
+        """
         job_template = pkg_root.joinpath(
             "templates",
             "spatial_smoothing_job.m",
