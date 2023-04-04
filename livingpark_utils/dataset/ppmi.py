@@ -174,13 +174,4 @@ protocol_description={clean_protocol_description(protocol_description)}
     elif len(files) == 1:
         return files[0]
 
-    raise NiftiFileNotFoundError(
-        f"Subject: {subject_id}, Event: {event_id}, "
-        f"Protocol description: {protocol_description}, Expression: {expression}"
-    )
-
-
-class NiftiFileNotFoundError(Exception):
-    """An exception class for nifti file not found errors."""
-
-    pass
+    return ""
