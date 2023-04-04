@@ -174,4 +174,12 @@ protocol_description={clean_protocol_description(protocol_description)}
     elif len(files) == 1:
         return files[0]
 
-    return ""
+    else:
+        logging.warning(
+            f"""No Nifti file matched by {expression}
+{subject_id=}
+{event_id=}
+protocol_description={clean_protocol_description(protocol_description)}
+"""
+        )
+        return ""
