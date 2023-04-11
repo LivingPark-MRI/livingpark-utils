@@ -171,16 +171,16 @@ def find_nifti_file_in_cache(
 protocol_description={clean_protocol_description(protocol_description)}
 """
         )
+        return ""
     elif len(files) == 1:
         return files[0]
 
-    raise NiftiFileNotFoundError(
-        f"Subject: {subject_id}, Event: {event_id}, "
-        f"Protocol description: {protocol_description}, Expression: {expression}"
-    )
-
-
-class NiftiFileNotFoundError(Exception):
-    """An exception class for nifti file not found errors."""
-
-    pass
+    else:
+        logging.warning(
+            f"""No Nifti file matched by {expression}
+{subject_id=}
+{event_id=}
+protocol_description={clean_protocol_description(protocol_description)}
+"""
+        )
+        return ""
