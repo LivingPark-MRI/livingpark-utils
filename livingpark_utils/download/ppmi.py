@@ -1,7 +1,9 @@
 """Downloader for the ppmi dataset."""
 import logging
 import os.path
+import re
 import traceback
+from pathlib import Path
 from typing import Iterator
 from typing import Sequence
 from typing import TypeVar
@@ -105,6 +107,10 @@ class Downloader(DownloaderABC):
             success = list(set(query) - set(missing))
             return success, missing
         finally:
+            # Remove suffixed date from PPMI filename.
+            for filename in Path(self.out_dir).iterdir():
+                filename.rename(re.sub(r"_\d+[a-zA-Z]+\d+", "", filename.as_posix()))
+
             if "downloader" in locals():
                 downloader.quit()
 
