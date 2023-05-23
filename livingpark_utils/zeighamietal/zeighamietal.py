@@ -92,8 +92,8 @@ def load_ppmi_csv(
     invalid_subjects = df_ppmi.loc[df_ppmi[COL_PAT_ID].isna(), COL_PAT_ID].to_list()
     if len(invalid_subjects) > 0:
         print(
-            f"Dropping {len(invalid_subjects)} subjects "
-            f"with non-integer IDs: {invalid_subjects}"
+            f"Dropping {len(invalid_subjects)} subjects with non-integer IDs"
+            # f": {invalid_subjects}"
         )
         df_ppmi = df_ppmi.loc[~df_ppmi[COL_PAT_ID].isin(invalid_subjects)]
 
