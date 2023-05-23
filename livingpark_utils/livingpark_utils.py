@@ -12,6 +12,12 @@ from .deprecation import deprecated
 from .download.DownloaderABC import DownloaderABC
 
 
+class FailedDownloadError(Exception):
+    """Exception to report a failed download."""
+
+    pass
+
+
 class LivingParkUtils:
     """Contain functions to be reused across LivingPark notebooks."""
 
@@ -108,7 +114,7 @@ class LivingParkUtils:
             _, missing = default.get_study_files(missing, timeout=timeout, **kwargs)
 
             if len(missing) > 0:
-                pprint(f"Missing files: {missing}")
+                raise FailedDownloadError(f"Missing files: {missing}")
             else:
                 print("Download completed")
 
@@ -158,7 +164,7 @@ class LivingParkUtils:
                 if len(missing) > 0:
                     with open("install_nifti.log") as fout:
                         fout.write(missing)
-                    return pprint(
+                    raise FailedDownloadError(
                         "Some files could not be downloaded."
                         "\nSee `install_nifti.log` file for more information."
                     )
