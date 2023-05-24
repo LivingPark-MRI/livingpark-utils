@@ -80,7 +80,7 @@ def disease_duration(
         return abs(delta.years * 12) + abs(delta.months)
 
     ppmi_downloader = ppmi.Downloader(study_data_dir)
-    required_files = ["MDS_UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"]
+    required_files = ["MDS-UPDRS_Part_III.csv", "PD_Diagnosis_History.csv"]
 
     missing = ppmi_downloader.missing_study_files(required_files, force=force)
     if len(missing) == 0:
@@ -94,7 +94,7 @@ def disease_duration(
     ]
     pddxdt = pddxdt[(pddxdt["EVENT_ID"] == "SC") & pddxdt["PDDXDT"].notna()]
     pdxdur = pd.read_csv(
-        os.path.join(study_data_dir, "MDS_UPDRS_Part_III.csv"),
+        os.path.join(study_data_dir, "MDS-UPDRS_Part_III.csv"),
         low_memory=False,
     )[["PATNO", "EVENT_ID", "INFODT"]]
 
