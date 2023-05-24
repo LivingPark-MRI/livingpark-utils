@@ -38,8 +38,8 @@ class LivingParkUtils:
         self.code_dir = os.path.abspath("code")
 
         self.setup_notebook_cache()
-        os.makedirs(self.study_files_dir, exist_ok=True)
-        os.makedirs(self.code_dir, exist_ok=True)
+        os.makedirs(self.study_files_dir, mode=0o755, exist_ok=True)
+        os.makedirs(self.code_dir, mode=0o755, exist_ok=True)
 
     def setup_notebook_cache(self) -> None:
         """Create, install, and update the cache directory, if needed.
