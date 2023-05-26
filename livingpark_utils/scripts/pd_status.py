@@ -57,7 +57,7 @@ print(f"This notebook was run on {now}")
 # In[3]:
 
 
-from livingpark_utils import download
+from livingpark_utils.download import ppmi
 import livingpark_utils
 import pandas as pd
 import os
@@ -66,11 +66,45 @@ utils = livingpark_utils.LivingParkUtils()
 utils.notebook_init()
 
 updrs_file_name = "MDS-UPDRS_Part_III.csv"
-downloader = download.ppmi.Downloader(utils.study_files_dir, headless=False)
+downloader = ppmi.Downloader(utils.study_files_dir, headless=False)
 utils.get_study_files([updrs_file_name], default=downloader)
 df = pd.read_csv(os.path.join(utils.study_files_dir, updrs_file_name))
 
 print("File downloaded")
+
+
+# # Assign exam date and time for PDSTATE ON and OFF.
+
+# In[4]:
+
+
+df = df.merge(
+    df[df["PDSTATE"] == "OFF"][
+        ["PATNO", "EVENT_ID", "EXAMDT", "EXAMTM", "PDMEDDT", "PDMEDTM"]
+    ].rename(
+        columns={
+            "EXAMDT": "OFFEXAMDT",
+            "EXAMTM": "OFFEXAMTM",
+            "PDMEDDT": "OFFPDMEDDT",
+            "PDMEDTM": "OFFPDMEDTM",
+        }
+    ),
+    how="left",
+    on=("PATNO", "EVENT_ID"),
+).merge(
+    df[df["PDSTATE"] == "ON"][
+        ["PATNO", "EVENT_ID", "EXAMDT", "EXAMTM", "PDMEDDT", "PDMEDTM"]
+    ].rename(
+        columns={
+            "EXAMDT": "ONEXAMDT",
+            "EXAMTM": "ONEXAMTM",
+            "PDMEDDT": "ONPDMEDDT",
+            "PDMEDTM": "ONPDMEDTM",
+        }
+    ),
+    how="left",
+    on=("PATNO", "EVENT_ID"),
+)
 
 
 # # ⁉️ Inconsistencies
@@ -81,13 +115,13 @@ print("File downloaded")
 #      	&#10060; <b>Problem:</b> a few records have PDSTATE=ON and PDTRTMNT=0, which is inconsistent:
 # </div>
 
-# In[4]:
+# In[5]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 
-# In[5]:
+# In[6]:
 
 
 errors = df[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0)]
@@ -103,7 +137,7 @@ errors = df[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0)]
 # 
 # 
 
-# In[6]:
+# In[7]:
 
 
 df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0), "PDTRTMNT"] = 1
@@ -111,7 +145,7 @@ df.loc[(df["PDSTATE"] == "ON") & (df["PDTRTMNT"] == 0), "PDTRTMNT"] = 1
 
 # Let's verify that the inconsistency is now resolved:
 
-# In[7]:
+# In[8]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -125,7 +159,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # Number of patients on medication at screening time:
 
-# In[8]:
+# In[9]:
 
 
 len(df[(df["EVENT_ID"] == "SC") & (df["PDTRTMNT"] == 1)])
@@ -143,7 +177,7 @@ len(df[(df["EVENT_ID"] == "SC") & (df["PDTRTMNT"] == 1)])
 
 # Number of records where PDSTATE=ON and EXAMTM<PDMEDTM:
 
-# In[9]:
+# In[10]:
 
 
 # ON records
@@ -181,7 +215,7 @@ len(on[on["delta"] < 0])
 
 # ⚙️ Implementation
 
-# In[10]:
+# In[11]:
 
 
 before = len(df)
@@ -204,7 +238,7 @@ print(f"Removed {before-len(df)} records where PDSTATE=ON and EXAMTM<PDMEDTM")
 
 # Number of records that belong to a visit with more than 3 exams:
 
-# In[11]:
+# In[12]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -213,7 +247,7 @@ len(pb)
 
 # Each exams triple has an exam with missing ONEXAMTM, missing OFFEXAMTM, and missing PDSTATE:
 
-# In[12]:
+# In[13]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -229,7 +263,7 @@ HTML(pb_trunc.to_html(index=False))
 
 # ⚙️ Implementation
 
-# In[13]:
+# In[14]:
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -244,7 +278,7 @@ print(f"Number of removed records: {before_len-len(df)}")
 
 # Let's verify that the inconsistency is solved by counting the number of records that belong to a visit with more than 3 exams:
 
-# In[14]:
+# In[15]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -259,7 +293,7 @@ len(pb)
 
 # ⚙️ Implementation
 
-# In[15]:
+# In[16]:
 
 
 before_len = len(df)
@@ -269,7 +303,7 @@ print(f"Number of removed records: {before_len-len(df)}")
 
 # There are still records that belong to a visit with more than 3 exams. The corresponding visits all have 2 exams with PDSTATE=OFF, however, only one of these visits has HRPOSTMED != NaN. 
 
-# In[16]:
+# In[17]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -282,7 +316,7 @@ pb[["EVENT_ID", "PDSTATE", "HRPOSTMED", "OFFPDMEDDT", "OFFPDMEDTM"]]
 
 # ⚙️ Implementation
 
-# In[17]:
+# In[18]:
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -295,7 +329,7 @@ print(f"Number of removed records: {before_len-len(df)}")
 
 # Let's verify that the inconsistency is solved by counting the number of records that belong to a visit with more than 3 exams:
 
-# In[18]:
+# In[19]:
 
 
 pb = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) > 2)
@@ -310,7 +344,7 @@ len(pb)
 
 # The following table summarizes the number of records for which PDSTATE or PDTRTMNT is missing:
 
-# In[19]:
+# In[20]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -324,7 +358,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # | **Case 2**|  NaN   | 1        | 2               |
 # | **Case 3** | NaN    | NaN      | 2318             |
 
-# In[20]:
+# In[21]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -338,7 +372,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 
 # ⚙️ Implementation
 
-# In[21]:
+# In[22]:
 
 
 df.loc[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 0), "PDSTATE"] = "OFF"
@@ -346,7 +380,7 @@ df.loc[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"] == 0), "PDSTATE"] = "OFF"
 
 # Let's verify that case 2 is now resolved:
 
-# In[22]:
+# In[23]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -358,7 +392,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 #     	&#10003; <b>Proposed correction</b>: drop the record as there are only 2 of them. 
 # </div>
 
-# In[23]:
+# In[24]:
 
 
 df = df[~(df["PDSTATE"].isnull()) | (df["PDTRTMNT"] != 1)]
@@ -366,7 +400,7 @@ df = df[~(df["PDSTATE"].isnull()) | (df["PDTRTMNT"] != 1)]
 
 # Updated records distribution:
 
-# In[24]:
+# In[25]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -377,7 +411,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # Similar to case 1, no record in case 3 has a medication date (ON/OFFPDMEDDT), a medication time (ON/OFFPDMEDTM), or
 # a DBS status (DBSYN):
 
-# In[25]:
+# In[26]:
 
 
 case_3 = df[(df["PDSTATE"].isnull()) & (df["PDTRTMNT"].isnull())]
@@ -404,7 +438,7 @@ case_3.groupby(
 
 # ⚙️ Implementation
 
-# In[26]:
+# In[27]:
 
 
 df_1 = df.copy()
@@ -415,7 +449,7 @@ df = df_1
 
 # Let's verify that case 3 is now resolved:
 
-# In[27]:
+# In[28]:
 
 
 df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
@@ -425,7 +459,7 @@ df.groupby(["PDSTATE", "PDTRTMNT"], dropna=False)[["REC_ID"]].count()
 # 
 # Let's save the cleaned file:
 
-# In[28]:
+# In[29]:
 
 
 filename = "MDS_UPDRS_Part_III_clean.csv"
@@ -439,7 +473,7 @@ print(f"Cleaned file saved in {filename}")
 
 # **IF** visit has two exam **THEN** one is ON and the other one is OFF:
 
-# In[29]:
+# In[30]:
 
 
 a = df.groupby(["PATNO", "EVENT_ID"]).filter(lambda x: len(x) == 2)
@@ -450,7 +484,7 @@ a.groupby(["PATNO", "EVENT_ID"]).filter(
 
 # **IF** PDSTATE=ON **THEN** ONEXAMTM>ONPDMEDTM
 
-# In[30]:
+# In[31]:
 
 
 df[
@@ -461,7 +495,7 @@ df[
 
 # **IF** PDTRTMNT=0 **THEN** there is a single visit and PDSTATE=OFF
 
-# In[31]:
+# In[32]:
 
 
 assert (
@@ -481,7 +515,7 @@ print("True")
 
 # A patient cannot become unmedicated after being medicated:
 
-# In[32]:
+# In[33]:
 
 
 def wrong_pairs(x):
