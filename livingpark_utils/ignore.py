@@ -1,4 +1,6 @@
 """Utilities to ignore patient visits without leaking their identities."""
+import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -24,10 +26,44 @@ def insert_hash(df: pd.DataFrame, *, columns: list[str]) -> pd.DataFrame:
     """
     df = df.copy()
     df["HASH"] = df.apply(
-        lambda x: hash("_".join([str(x[column]) for column in columns])),
+        lambda x: hashlib.sha256(
+            "_".join([str(x[column]) for column in columns]).encode()
+        ).hexdigest(),
         axis=1,
     ).astype(str)
     return df
+
+
+def add_ignored(df: pd.DataFrame, *, ignore_file: str, mode: str = "a") -> None:
+    """Add new subject to the ignore file.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe with subject to ignore. It must have an "HASH" column.
+    ignore_file : str
+        File containing the hash identifier to remove.
+    mode : str, optional
+        mode to open file. Either "a", "a+" or "w", by default "a"
+
+    Raises
+    ------
+    ValueError
+        Invalid `mode` to open file was given.
+    """
+    match mode:
+        case "w":
+            with Path(ignore_file).open("w") as fout:
+                fout.write(os.linesep.join(df["HASH"].values) + os.linesep)
+        case "a" | "a+":
+            # Prevent appending existing subjects.
+            with Path(".ppmiignore").open("a+") as f:
+                f.seek(0)
+                diff = set(df["HASH"].values) - set(f.read().split())
+                if diff:
+                    f.write(os.linesep.join(diff) + os.linesep)
+        case _:
+            raise ValueError(f"invalid mode: '{mode}'")
 
 
 def remove_ignored(df: pd.DataFrame, *, ignore_file: str) -> pd.DataFrame:
