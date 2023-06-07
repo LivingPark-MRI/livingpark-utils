@@ -2,7 +2,6 @@
 from pathlib import Path
 
 import pandas as pd
-from ppmi_downloader import PPMIDownloader
 
 from .. import livingpark_utils
 from .constants import COL_DATE_INFO
@@ -13,6 +12,7 @@ from .constants import COL_VISIT_TYPE
 from .constants import COLS_DATE
 from .constants import FIELD_STRENGTHS
 from .constants import FILENAME_PARTICIPANT_STATUS
+from .constants import FILENAME_T1_INFO
 from .constants import IDA_COLNAME_MAP
 from .constants import IDA_VISIT_MAP
 from .constants import MAIN_COHORT
@@ -78,13 +78,24 @@ def load_ppmi_csv(
     # convert IDA search results to the same format as other PPMI study files
     if from_ida_search:
         df_ppmi = df_ppmi.rename(columns=IDA_COLNAME_MAP)
-        df_ppmi[COL_PAT_ID] = pd.to_numeric(df_ppmi[COL_PAT_ID], errors="coerce")
 
         # convert visit code
         missing_keys = set(df_ppmi[COL_VISIT_TYPE]) - set(IDA_VISIT_MAP.keys())
         if len(missing_keys) != 0:
             raise RuntimeError(f"Missing keys in conversion map: {missing_keys}")
         df_ppmi[COL_VISIT_TYPE] = df_ppmi[COL_VISIT_TYPE].map(IDA_VISIT_MAP)
+
+    # convert subject IDs to integers
+    # IDs should be all integers to be consistent
+    # if they are strings the cohort_ID hash can change even if the strings are the same
+    df_ppmi[COL_PAT_ID] = pd.to_numeric(df_ppmi[COL_PAT_ID], errors="coerce")
+    invalid_subjects = df_ppmi.loc[df_ppmi[COL_PAT_ID].isna(), COL_PAT_ID].to_list()
+    if len(invalid_subjects) > 0:
+        print(
+            f"Dropping {len(invalid_subjects)} subjects with non-integer IDs"
+            # f": {invalid_subjects}"
+        )
+        df_ppmi = df_ppmi.loc[~df_ppmi[COL_PAT_ID].isin(invalid_subjects)]
 
     if convert_dates:
         df_ppmi = convert_date_cols(df_ppmi, **kwargs)
@@ -189,7 +200,7 @@ def mean_impute(df: pd.DataFrame, cols: str | list) -> pd.DataFrame:
 
 def get_t1_cohort(
     utils: livingpark_utils.LivingParkUtils,
-    filename: str,
+    filename: str = FILENAME_T1_INFO,
     cohort_name: str = MAIN_COHORT,
     sagittal_only=True,
 ) -> pd.DataFrame:
@@ -200,8 +211,7 @@ def get_t1_cohort(
     utils : livingpark_utils.LivingParkUtils
         the notebook's LivingParkUtils instance
     filename : str
-        name of 3D T1 search result file.
-        This file will be downloaded if it doesn't exist
+        name of 3D T1 search result file, by default FILENAME_T1_INFO.
     cohort_name : str, optional
         must match MAIN_COHORT or VALIDATION_COHORT,
         by default value stored in MAIN_COHORT
@@ -235,11 +245,14 @@ def get_t1_cohort(
     dirname = utils.study_files_dir
     filepath = Path(dirname, filename)
 
-    # download and move file if it doesn't exist yet
+    # error if file doesn't exist yet
     if not filepath.exists():
-        downloader = PPMIDownloader()
-        filename_tmp = downloader.download_3D_T1_info(destination_dir=dirname)
-        Path(dirname, filename_tmp).rename(filepath)
+        raise FileNotFoundError(
+            f"{filepath} doesn't exist. "
+            "You need to run livingpark_utils.scripts.mri_metadata first"
+        )
+    else:
+        print(f"Using MRI info file: {filepath}")
 
     # load csv files
     df_t1 = load_ppmi_csv(utils, filename, from_ida_search=True)
@@ -272,34 +285,8 @@ def get_t1_cohort(
         & (df_t1_subset[COL_VISIT_TYPE] == VISIT_BASELINE)
     ]
 
-    # some subjects in the validation cohort have repeat scans on the same day
-    # these scans have the word "Repeat" in the description column
-    # we keep the repeat scan
-    subject_counts = df_t1_subset[COL_PAT_ID].value_counts()
-    duplicate_subjects = subject_counts.loc[subject_counts != 1].index
-    print(f"Removing extra scans for {len(duplicate_subjects)} subjects")
-    # print(df_t1_subset.loc[df_t1_subset[COL_PAT_ID].isin(duplicate_subjects)])
-
-    if cohort_name == VALIDATION_COHORT:
-        df_t1_subset = df_t1_subset.loc[
-            ~df_t1_subset[COL_PAT_ID].isin(duplicate_subjects)
-            | df_t1_subset["Description"].str.contains("Repeat")
-        ]
-    else:
-        # description of repeat scans
-        # ['AX 3D FSPGR straight brain lab',
-        #  'sag 3D FSPGR BRAVO straight']       -> keep sagittal
-        # ['T1W_3D_FFE COR', 'T1W_3D_FFE AX']   -> unsure which to keep
-        # ['MPRAGE GRAPPA_ND', 'MPRAGE GRAPPA'] -> unsure which to keep
-        df_t1_subset = df_t1_subset.loc[
-            (~df_t1_subset[COL_PAT_ID].isin(duplicate_subjects))
-            | (
-                (~df_t1_subset["Description"].str.contains("AX"))
-                & (~df_t1_subset["Description"].str.contains("_ND"))
-            )
-        ]
-
+    # warn if there are duplicates
     if df_t1_subset[COL_PAT_ID].nunique() != len(df_t1_subset[COL_PAT_ID]):
-        raise RuntimeError(f"Duplicate subjects in {cohort_name} cohort")
+        print(f"WARNING: Duplicate subjects in {cohort_name} cohort")
 
     return df_t1_subset

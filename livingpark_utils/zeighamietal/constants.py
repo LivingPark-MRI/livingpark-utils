@@ -1,17 +1,18 @@
 """Constant variables for Zeighami et al. notebooks."""
 # PPMI file names
 FILENAME_DEMOGRAPHICS = "Demographics.csv"
+FILENAME_PD_HISTORY = "PD_Diagnosis_History.csv"
 FILENAME_AGE = "Age_at_visit.csv"
 FILENAME_PARTICIPANT_STATUS = "Participant_Status.csv"
 FILENAME_MOCA = "Montreal_Cognitive_Assessment__MoCA_.csv"
 FILENAME_UPDRS1A = "MDS-UPDRS_Part_I.csv"
 FILENAME_UPDRS1B = "MDS-UPDRS_Part_I_Patient_Questionnaire.csv"  # patient questionnaire
 FILENAME_UPDRS2 = "MDS_UPDRS_Part_II__Patient_Questionnaire.csv"
-FILENAME_UPDRS3 = "MDS_UPDRS_Part_III.csv"
+FILENAME_UPDRS3 = "MDS-UPDRS_Part_III.csv"
 FILENAME_ADL = "Modified_Schwab___England_Activities_of_Daily_Living.csv"
 
 # other file names
-FILENAME_T1_INFO = "3D_T1_info_idaSearch.csv"
+FILENAME_T1_INFO = "MRI_info.csv"
 
 # useful column names
 COL_PAT_ID = "PATNO"
@@ -19,10 +20,14 @@ COL_STATUS = "COHORT_DEFINITION"
 COL_VISIT_TYPE = "EVENT_ID"
 COL_MRI_COMPLETE = "MRICMPLT"
 COL_DATE_INFO = "INFODT"
+COL_DATE_BIRTH = "BIRTHDT"
+COL_DATE_PD = "PDDXDT"
 COLS_DATE = [
     COL_DATE_INFO,
     "LAST_UPDATE",
     "ORIG_ENTRY",
+    COL_DATE_BIRTH,
+    COL_DATE_PD,
 ]
 COL_PD_STATE = "PDSTATE"
 COL_AGE = "AGE_AT_VISIT"
@@ -49,7 +54,7 @@ COLS_PIGD_COMPONENTS_UPDRS3 = [
 ]
 COLS_PIGD_COMPONENTS = COLS_PIGD_COMPONENTS_UPDRS2 + COLS_PIGD_COMPONENTS_UPDRS3
 COL_GCO = "GCO"  # global composite outcome
-COLS_SCORES_WITHOUT_GCO = [COL_UPDRS2, COL_UPDRS3, COL_ADL, COL_PIGD, COL_MOCA]
+COLS_SCORES_WITHOUT_GCO = [COL_UPDRS1, COL_UPDRS2, COL_UPDRS3, COL_ADL, COL_MOCA]
 COLS_SCORES = COLS_SCORES_WITHOUT_GCO + [COL_GCO]
 COL_FOLLOWUP = "is_followup"
 COL_IMAGING_PROTOCOL = "Imaging Protocol"  # from IDA search results
@@ -61,7 +66,7 @@ STATUS_HC = "Healthy Control"
 # codes for EVENT_ID field
 VISIT_BASELINE = "BL"
 VISIT_SCREENING = "SC"
-REGEX_VISIT_FOLLOWUP = "^V((0[1-9])|(1[0-9])|(20))$"  # V01-V20
+REGEX_VISIT_FOLLOWUP = "^V((0[4-9])|(1[0-9])|(20))$"  # V04-V20
 
 # codes for SEX field
 SEX_FEMALE = 0
@@ -82,6 +87,7 @@ IDA_COLNAME_MAP = {
 IDA_VISIT_MAP = {
     "Baseline": VISIT_BASELINE,
     "Screening": VISIT_SCREENING,
+    "Month 6": "V02",
     "Month 12": "V04",
     "Month 24": "V06",
     "Month 36": "V08",
