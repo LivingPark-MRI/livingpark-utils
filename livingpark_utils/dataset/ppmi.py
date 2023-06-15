@@ -2,6 +2,7 @@
 import datetime
 import logging
 import os.path
+import re
 from pathlib import Path
 from pprint import pprint
 
@@ -120,7 +121,7 @@ def clean_protocol_description(desc: str) -> str:
     str
         Protocol description. Example: "MPRAGE GRAPPA"
     """
-    return desc.replace(" ", "_")
+    return re.sub(r"[\s/]", "_", desc)
 
 
 def find_nifti_file_in_cache(

@@ -2,7 +2,15 @@
 from pathlib import Path
 from typing import Any
 
+from nipype import config
+from nipype import logging
 from nipype.interfaces.dcm2nii import Dcm2niix
+
+config.update_config(
+    {"logging": {"log_directory": Path("logs").absolute(), "log_to_file": True}}
+)
+config.enable_debug_mode()
+logging.update_logging(config)
 
 
 class fileConversionError(Exception):
@@ -11,7 +19,7 @@ class fileConversionError(Exception):
     pass
 
 
-def dcm2niix(filenames: list[Path] | Path, output_dir: Path = None) -> Any:
+def dcm2niix(filenames: list[Path] | Path, output_dir: Path) -> Any:
     """Convert DICOM files to NIfTI using dcm2niix.
 
     Parameters
@@ -19,7 +27,7 @@ def dcm2niix(filenames: list[Path] | Path, output_dir: Path = None) -> Any:
     filenames : list[Path] | Path
         File to convert. Can either be a list of files or a directory.
     output_dir : Path, optional
-        Path to the output folder, by default None
+        Path to the output folder
 
     Returns
     -------
@@ -37,9 +45,8 @@ def dcm2niix(filenames: list[Path] | Path, output_dir: Path = None) -> Any:
     else:
         converter.inputs.source_names = filenames
 
-    if output_dir:
-        output_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-        converter.inputs.output_dir = output_dir
+    output_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+    converter.inputs.output_dir = output_dir
 
     try:
         return converter.run()

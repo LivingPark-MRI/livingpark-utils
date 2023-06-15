@@ -175,25 +175,39 @@ def find_dicom(patno: str | int, event_id: str, desc: str) -> list[Path]:
             and (visit_map[event_id] == metadata["visit_id"])
             and (desc == metadata["description"])
         ):
+            # Retrieve all the DICOM files for a subject
+            # Then only keep the ones matching the regex.
+            # We do this process in two steps because the `wildcard` accepted by the
+            # rglob` is less versatile than regex from the`re` module.
             subject_dir = Path("PPMI", patno)
-            regex = (
-                f"PPMI_{patno}_MR_{ppmi.clean_protocol_description(desc)}_br_raw_"
-                f"*_S{metadata['series_id']}_I{metadata['image_id']}.dcm"
+            wildcard = f"*_S{metadata['series_id']}_I{metadata['image_id']}.dcm"
+            regex = r"PPMI_{}_MR_{}_*br_raw.*_S{}_I{}\.dcm".format(
+                metadata["subject_id"],
+                ppmi.clean_protocol_description(metadata["description"]),
+                metadata["series_id"],
+                metadata["image_id"],
             )
+            filenames = [
+                f for f in subject_dir.rglob(wildcard) if re.match(regex, f.name)
+            ]
 
-            filenames = [filename for filename in subject_dir.rglob(regex)]
-            if len(filenames) != metadata["n_files"]:
-                logger.warning(
-                    f"Found {len(filenames)} files matching {subject_dir / regex} "
-                    f"while exactly {metadata['n_files']} was expected"
+            if len(filenames) == 0:
+                raise fileMatchingError(
+                    f"Found no files matching {subject_dir}/**/{regex}\n"
+                )
+            elif len(filenames) == metadata["n_files"]:
+                logger.info(
+                    "Found all files matching "
+                    f"{subject_dir}/**/{regex}: {len(filenames)}"
                 )
             else:
-                logger.info(
-                    f"Found all files matching {subject_dir / regex}: {len(filenames)}"
+                logger.warning(
+                    f"Found {len(filenames)} files matching {subject_dir}/**/{regex} "
+                    f"while exactly {metadata['n_files']} was expected"
                 )
             return filenames
 
-    raise fileMatchingError(f"No XML file found: {patno=}, {event_id=}, {desc=}")
+    raise fileMatchingError(f"No XML file found: {patno=}, {event_id=}, {desc=}\n")
 
 
 class Downloader(DownloaderABC):
@@ -327,14 +341,14 @@ class Downloader(DownloaderABC):
                     timeout=timeout * len(batch),
                 )
                 # We map the files in each batch to limit re-download on failures.
-                self._map_dicom_from_cache(
+                self._map_nifti_from_cache(
                     query[query["PATNO"].isin(batch)], symlink=symlink
                 )
 
             except (TimeoutError, ReadTimeoutError):
                 logger.error(traceback.format_exc())
 
-                self._map_dicom_from_cache(
+                self._map_nifti_from_cache(
                     query[query["PATNO"].isin(batch)], symlink=symlink
                 )
                 missing = self.missing_T1_nifti_files(query)
@@ -383,7 +397,7 @@ class Downloader(DownloaderABC):
             )
             return query[query["File name"] == ""].copy()
 
-    def _map_dicom_from_cache(
+    def _map_nifti_from_cache(
         self,
         cohort: pd.DataFrame,
         *,
