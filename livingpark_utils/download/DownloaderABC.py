@@ -48,7 +48,7 @@ class DownloaderABC(ABC):
         Returns
         -------
         tuple[list[str], list[str]]
-            Tuple with the successful and missing study files, respectlively.
+            Tuple with the successful and missing study files, respectively.
 
         Raises
         ------
@@ -100,7 +100,7 @@ class DownloaderABC(ABC):
         -------
         tuple[pd.DataFrame, pd.DataFrame]
             Tuple with the successful and missing T1 NIfTI file identifiers,
-            respectlively.
+            respectively.
 
         Raises
         ------
