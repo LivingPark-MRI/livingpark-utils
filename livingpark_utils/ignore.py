@@ -83,9 +83,8 @@ def remove_ignored(df: pd.DataFrame, *, ignore_file: str) -> pd.DataFrame:
     pd.DataFrame
         New dataframe with ignored subjects removed.
     """
-    is_hash = re.compile(r"^-?\d+")
     with Path(ignore_file).open() as fin:
-        ignored = [line for line in fin.read().splitlines() if is_hash.match(line)]
+        ignored = [line for line in fin.read().splitlines()]
 
     df = df.copy()
     return df[~df["HASH"].isin(ignored)]
