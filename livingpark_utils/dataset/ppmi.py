@@ -1,9 +1,9 @@
 """Provide utilies to work with the PPMI dataset."""
 import datetime
-import glob
 import logging
 import os.path
 import re
+from pathlib import Path
 from pprint import pprint
 
 import numpy as np
@@ -121,23 +121,22 @@ def clean_protocol_description(desc: str) -> str:
     str
         Protocol description. Example: "MPRAGE GRAPPA"
     """
-    return re.sub(r"_+", "_", re.sub(r"[\s()/-]", "_", desc)).strip("_")
+    return re.sub(r"[\s()/]", "_", desc)
 
 
 def find_nifti_file_in_cache(
     subject_id: str,
     event_id: str,
-    protocol_description: str,
+    description: str,
     *,
     cache_dir: str = ".cache",
     base_dir: str = "inputs",
+    debug: bool = True,
 ) -> str:
     """Return cached nifti files, if any.
 
     Search for nifti file matching `subject_id`, `event_id` and
-    `protocol_description` in the cache directory.
-    If not found, search for nifti file matching `subject_id` and `event_id` only,
-    and return it if a single file is found.
+    `description` in the cache directory.
 
     Parameters
     ----------
@@ -145,42 +144,42 @@ def find_nifti_file_in_cache(
         Subject ID
     event_id: str
         Event ID. Example: BL
-    protocol_description: str
+    description: str
         Protocol description. Example: "MPRAGE GRAPPA"
 
     Returns
     -------
     str:
         File name matching the `subject_id`, `event_id`, and if possible
-        `protocol_description`. Empty string if no matching file is found.
+        `description`. Empty string if no matching file is found.
     """
-    expression = os.path.join(
-        cache_dir,
-        base_dir,
-        f"sub-{subject_id}",
-        f"ses-{event_id}",
-        "anat",
-        f"PPMI_*{clean_protocol_description(protocol_description)}_br_raw_*.nii",
+    expression = f"PPMI_{subject_id}_{clean_protocol_description(description)}.nii.gz"
+    filenames = list(
+        Path(cache_dir, base_dir, f"sub-{subject_id}", f"ses-{event_id}", "anat").rglob(
+            expression
+        )
     )
-    files = glob.glob(expression)
-    if len(files) > 1:
-        logging.warning(
-            f"""More than 1 Nifti file matched by {expression}
-{subject_id=}
-{event_id=}
-protocol_description={clean_protocol_description(protocol_description)}
-"""
-        )
-        return ""
-    elif len(files) == 1:
-        return files[0]
 
-    else:
-        logging.warning(
-            f"""No Nifti file matched by {expression}
+    match len(filenames):
+        case 0:
+            if debug:
+                logging.warning(
+                    f"""No Nifti file matched by {expression}
 {subject_id=}
 {event_id=}
-protocol_description={clean_protocol_description(protocol_description)}
+description={clean_protocol_description(description)}
 """
-        )
-        return ""
+                )
+        case 1:
+            return filenames[0].as_posix()
+        case _:
+            if debug:
+                logging.warning(
+                    f"""More than 1 Nifti file matched by {expression}
+{subject_id=}
+{event_id=}
+description={clean_protocol_description(description)}
+"""
+                )
+
+    return ""

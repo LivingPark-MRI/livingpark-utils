@@ -26,6 +26,8 @@ dependencies = [
     "pandas",
     "pytz",
     "click",
+    "dcm2niix",
+    "nipype",
 ]
 
 [project.scripts]

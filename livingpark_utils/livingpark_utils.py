@@ -171,18 +171,6 @@ class LivingParkUtils:
 
         print("Download completed")
 
-    def preprocess(
-        self,
-    ) -> None:
-        """Handle the preprocessing of a cohort.
-
-        Raises
-        ------
-        NotImplementedError
-
-        """
-        raise NotImplementedError
-
     # Methods to deprecate
     @deprecated(extra="Moved to function `pipeline.spm::SPM::write_spm_batch_files`.")
     def write_spm_batch_files(
@@ -439,7 +427,7 @@ class LivingParkUtils:
         return find_nifti_file_in_cache(
             subject_id=subject_id,
             event_id=event_id,
-            protocol_description=protocol_description,
+            description=protocol_description,
             cache_dir=self.data_cache_path,
             base_dir=base_dir,
         )
