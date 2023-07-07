@@ -1,7 +1,6 @@
 """Utilities to ignore patient visits without leaking their identities."""
 import hashlib
 import os
-import re
 from pathlib import Path
 
 import pandas as pd

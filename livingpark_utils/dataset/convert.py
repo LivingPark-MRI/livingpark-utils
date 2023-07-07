@@ -8,9 +8,7 @@ from nipype.interfaces.dcm2nii import Dcm2niix
 
 log_dir = Path("logs").absolute()
 log_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-config.update_config(
-    {"logging": {"log_directory": log_dir, "log_to_file": True}}
-)
+config.update_config({"logging": {"log_directory": log_dir, "log_to_file": True}})
 config.enable_debug_mode()
 logging.update_logging(config)
 
