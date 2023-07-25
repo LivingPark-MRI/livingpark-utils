@@ -334,23 +334,20 @@ class Downloader(DownloaderABC):
         print(f"Downloading image data of {missing_patno.nunique()} subjects")
 
         for batch in batched(missing_patno.unique(), n=batch_size):
+            batched_query = query[query["PATNO"].isin(batch)]
             try:
                 ppmi_dl = ppmi_downloader.PPMIDownloader(headless=self.headless)
                 ppmi_dl.download_imaging_data(
-                    batch,
+                    batched_query,
                     timeout=timeout * len(batch),
                 )
                 # We map the files in each batch to limit re-download on failures.
-                self._map_nifti_from_cache(
-                    query[query["PATNO"].isin(batch)], symlink=symlink
-                )
+                self._map_nifti_from_cache(batched_query, symlink=symlink)
 
             except (TimeoutError, ReadTimeoutError):
                 logger.error(traceback.format_exc())
 
-                self._map_nifti_from_cache(
-                    query[query["PATNO"].isin(batch)], symlink=symlink
-                )
+                self._map_nifti_from_cache(batched_query, symlink=symlink)
                 missing = self.missing_T1_nifti_files(query)
                 success = query[~query["PATNO"].isin(missing["PATNO"])].copy()
                 return success, missing
