@@ -325,19 +325,85 @@ class LivingParkUtils:
         group1_patnos: list,
         group2_patnos: list,
         icvs: dict,
-    ) -> None:
-        # noqa
-        from pipeline.spm import SPM
+        p_value: str
+    ) -> dict:
+        """
+        Compute VBM stats for cohort.
 
-        spm = SPM(code_dir=self.code_dir, cache=self.data_cache_path)
-        spm.spm_compute_vbm_stats(
-            cohort,
-            tissue_class,
-            group1_patnos,
-            group2_patnos,
-            icvs,
+        Cohort must already be segmented into GM and WM using
+        self.spm_compute_missing_segmentations and normalized to common space using
+        self.spm_compute_dartel_normalization. Inter-cranial volumes must be
+        pre-computed using self.spm_compute_intra_cranial_volumes.
+
+        Parameters
+        ----------
+         cohort: pd.DataFrame
+            A LivingPark cohort. Must have columns PATNO and EVENT_ID
+         tissue_class: int
+            "gm" for grey matter, "wm" for white matter
+         group1/2_patnos: list of PPMI patient numbers in group1/2. Important: a patno
+            must appear in exactly one group and must appear excatly once in this group.
+        icys: dict
+            inter-cranial volumes by patno, as returned by
+            self.spm_compute_intra_cranial_volumes
+        """
+
+        # Stats batch (grey matter)
+        stats_job_template = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "stats_job.m",
         )
 
+        cohort_id = ppmi.cohort_id(cohort)
+
+        stats_job_name = os.path.abspath(
+            os.path.join("code", "batches", f"stats_{tissue_class}_{cohort_id}_job.m")
+        )
+
+        design_dir = os.path.join("outputs", f"results-{tissue_class}-{cohort_id}")
+        os.makedirs(design_dir, exist_ok=True)
+
+        # Don't mess up with ordering, it's critical
+        tissue_numbers = {"gm": 1, "wm": 2}
+
+        def find_tissue_image(patno):
+            tissue = tissue_numbers[tissue_class]
+            visit = cohort[cohort["PATNO"] == patno]["EVENT_ID"].values[0]
+            return self.find_tissue_image_in_cache(tissue, patno, visit, "smw")
+
+        group1_smwc = [
+            f"'{find_tissue_image(patno)},1'" for patno in sorted(group1_patnos)
+        ]
+        group2_smwc = [
+            f"'{find_tissue_image(patno)},1'" for patno in sorted(group2_patnos)
+        ]
+
+        groups_patnos = [x for x in sorted(group1_patnos) + sorted(group2_patnos)]
+
+        replace_keys = {
+            "[P_VALUE]": str(p_value),
+            "[DESIGN_DIR]": os.path.abspath(design_dir),
+            "[GROUP1_SMWC_SCANS]": os.linesep.join(group1_smwc),
+            "[GROUP2_SMWC_SCANS]": os.linesep.join(group2_smwc),
+            "[ICVS]": os.linesep.join(
+                [str(icvs[str(x)]) for x in groups_patnos]
+            ),  # don't mess up ordering
+            "[AGES]": os.linesep.join(
+                [
+                    str(cohort[cohort["PATNO"] == x]["Age"].values[0])
+                    for x in groups_patnos
+                ]
+            ),
+        }
+
+        # Stats batch
+
+        self.write_spm_batch_files(stats_job_template, replace_keys, stats_job_name)
+        output = self.run_spm_batch_file(stats_job_name)
+        return output
+
+    # Methods to deprecate
     @deprecated(
         extra="Moved to function `livinpark_utils::LivingParkUtils::get_study_files`."
     )
