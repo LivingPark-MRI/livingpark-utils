@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "livingpark_utils"
-version = "0.9.4"
+version = "0.9.5"
 description = "Utility functions to write LivingPark notebooks."
 authors = [{ name = "Tristan Glatard", email = "tristan.glatard@concordia.ca" }]
 readme = "README.md"
@@ -17,7 +17,7 @@ license = { file = "LICENSE" }
 dependencies = [
     "datalad",
     "IPython",
-    "ppmi_downloader>=0.7.5",
+    "ppmi_downloader>=0.7.6",
     "nilearn",
     "boutiques",
     "pillow",
