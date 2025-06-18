@@ -125,7 +125,6 @@ visit_map = {
     "Month 24": "V06",
     "Month 36": "V08",
     "Month 48": "V10",
-    "Month 60": "V12",
     "Symptomatic Therapy": "ST",
     "Unscheduled Visit 01": "U01",
     "Unscheduled Visit 02": "U02",
